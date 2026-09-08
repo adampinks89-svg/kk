@@ -15,6 +15,7 @@ from skills.implementations.file_ops import (
     write_file_tool,
     rollback_file_tool,
 )
+from skills.implementations.cmd_ops import run_command_tool
 from core.logger import read_logs
 from core.linter import run_linter, format_lint_errors
 from core.ast_analyzer import get_ast_summary
@@ -47,6 +48,7 @@ SKILL_FUNCTIONS: Dict[str, Callable] = {
     "run_linter_tool": _run_linter_tool,
     "get_ast_context_tool": _get_ast_context_tool,
     "read_system_logs_tool": read_logs,
+    "run_command_tool": run_command_tool,
 }
 
 
@@ -183,6 +185,30 @@ OLLAMA_TOOLS = [
                     }
                 },
                 "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_command_tool",
+            "description": (
+                "Uruchamia polecenie lub skrypt w systemie operacyjnym (np. 'python3 calculator.py'). "
+                "Używaj do testowania napisanych aplikacji okienkowych i skryptów."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "Polecenie do wykonania (np. 'python3 calculator.py')"
+                    },
+                    "cwd": {
+                        "type": "string",
+                        "description": "Katalog roboczy (domyślnie obecny katalog)"
+                    }
+                },
+                "required": ["command"],
             },
         },
     },

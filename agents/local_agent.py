@@ -417,9 +417,9 @@ def query_local_model_stream(
                     "name": func_name,
                 })
 
-            # Rekurencyjnie wygeneruj odpowiedź po wykonaniu narzędzi
+            # Wygeneruj kolejną odpowiedź po wykonaniu narzędzi (pętla zamiast rekurencji)
             if not (stop_event and stop_event.is_set()):
-                yield SystemPayload(f"📥 Zwrócono wynik narzędzia **`{func_name}`**").to_dict()
+                yield SystemPayload(f"📥 Zwrócono wynik narzędzi").to_dict()
                 yield from query_local_model_stream(
                     messages, model_name, stop_event, pending_approvals, task_list
                 )
