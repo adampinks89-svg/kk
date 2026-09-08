@@ -157,6 +157,7 @@ def query_local_model_stream(
     task_list: list | None = None,
     _oscillation: OscillationDetector | None = None,
     _tool_iteration: int = 0,
+    working_directory: str | None = None,
 ):
     """
     Strumieniuje odpowiedź z Ollama jako dict payloady JSON.
@@ -292,6 +293,11 @@ def query_local_model_stream(
 
                 func_name = tc["function"]["name"]
                 args = tc["function"]["arguments"]
+                if working_directory and func_name in {
+                    "run_command_tool", "run_sandbox_tool", "run_tests_tool",
+                    "run_coverage_tool", "git_tool",
+                }:
+                    args["cwd"] = working_directory
 
                 # --- Loop Guard: limit iteracji ---
                 tool_iteration += 1
@@ -449,6 +455,7 @@ def query_local_model_stream(
                     task_list,
                     oscillation,
                     tool_iteration,
+                    working_directory,
                 )
                 return
 

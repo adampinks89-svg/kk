@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from agents.local_agent import check_ollama_status, query_local_model_stream
 from core.logger import read_logs
 from core.snapshot import list_snapshots, restore_snapshot
+from core.security import ALLOWED_WORKSPACES, validate_path
 
 app = FastAPI(title="Multi-Agent AI Studio Backend")
 
@@ -82,6 +83,21 @@ async def get_roles():
     return list(ROLES.keys())
 
 
+@app.get("/api/workspaces")
+async def get_workspaces():
+    """Zwraca katalogi, w których agent może wykonywać operacje."""
+    workspaces = []
+    for root in ALLOWED_WORKSPACES:
+        if not os.path.isdir(root):
+            continue
+        workspaces.append({"path": root, "name": os.path.basename(root) or root})
+        for entry in sorted(os.scandir(root), key=lambda item: item.name.lower()):
+            if entry.is_dir() and not entry.name.startswith("."):
+                workspaces.append({"path": entry.path, "name": f"{os.path.basename(root)}/{entry.name}"})
+    unique = {item["path"]: item for item in workspaces}
+    return sorted(unique.values(), key=lambda item: item["path"])
+
+
 @app.get("/api/logs")
 async def get_logs():
     logs = read_logs(100)
@@ -127,13 +143,16 @@ async def run_generator_in_thread(
     model: str,
     stop_event: threading.Event,
     pending_approvals: dict,
+    working_directory: str,
 ):
     """
     Mostuje synchroniczny generator agenta do async WebSocket.
     Każdy yield z agenta to dict payload – wysyłany bezpośrednio jako JSON.
     """
     loop = asyncio.get_running_loop()
-    iterator = query_local_model_stream(messages, model, stop_event, pending_approvals)
+    iterator = query_local_model_stream(
+        messages, model, stop_event, pending_approvals, working_directory=working_directory
+    )
     full_response_parts = []
 
     try:
@@ -189,6 +208,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     session_id = str(id(websocket))
     messages = []
+    working_directory = ALLOWED_WORKSPACES[0]
     pending_approvals: Dict[str, Any] = {}
     pending_approvals_store[session_id] = pending_approvals
 
@@ -207,6 +227,21 @@ async def websocket_endpoint(websocket: WebSocket):
                     "type": "system",
                     "text": f"\n--- Zmieniono rolę na: {role} ---\n"
                 })
+
+            # --- Ustawienie katalogu docelowego ---
+            elif action == "set_workspace":
+                requested_directory = payload.get("path", "")
+                if validate_path(requested_directory) and os.path.isdir(requested_directory):
+                    working_directory = os.path.abspath(requested_directory)
+                    await websocket.send_json({
+                        "type": "system",
+                        "text": f"\n--- Katalog agenta: {working_directory} ---\n",
+                    })
+                else:
+                    await websocket.send_json({
+                        "type": "error",
+                        "text": "Wybrany katalog nie jest dostępny w dozwolonym workspace.",
+                    })
 
             # --- Czyszczenie kontekstu ---
             elif action == "clear":
@@ -238,7 +273,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 asyncio.create_task(
                     run_generator_in_thread(
-                        websocket, messages, model, stop_event, pending_approvals
+                        websocket, messages, model, stop_event, pending_approvals,
+                        working_directory,
                     )
                 )
 

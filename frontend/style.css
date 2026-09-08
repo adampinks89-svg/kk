@@ -133,6 +133,12 @@ body {
     color: var(--muted);
 }
 
+.control-help {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
 .dropdown {
     padding: 9px 10px;
     background: var(--bg-surface0);

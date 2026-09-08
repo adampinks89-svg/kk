@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─── Elementy DOM ─────────────────────────────────────────────
     const modelSelect       = document.getElementById('model-select');
     const roleSelect        = document.getElementById('role-select');
+    const workspaceSelect   = document.getElementById('workspace-select');
     const clearCtxBtn       = document.getElementById('clear-ctx-btn');
     const showLogsBtn       = document.getElementById('show-logs-btn');
     const showSnapshotsBtn  = document.getElementById('show-snapshots-btn');
@@ -101,13 +102,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─── Inicjalizacja ────────────────────────────────────────────
     async function init() {
         try {
-            const [statusRes, rolesRes] = await Promise.all([
+            const [statusRes, rolesRes, workspacesRes] = await Promise.all([
                 fetch('/api/status'),
                 fetch('/api/roles'),
+                fetch('/api/workspaces'),
             ]);
 
             const statusData = await statusRes.json();
             const roles = await rolesRes.json();
+            const workspaces = await workspacesRes.json();
 
             // Status Ollama
             if (statusData.connected && statusData.models.length > 0) {
@@ -137,6 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 roleSelect.appendChild(opt);
             });
 
+            workspaceSelect.innerHTML = '';
+            workspaces.forEach(workspace => {
+                const opt = document.createElement('option');
+                opt.value = workspace.path;
+                opt.textContent = workspace.name;
+                workspaceSelect.appendChild(opt);
+            });
+
         } catch (e) {
             appendError(`❌ Błąd inicjalizacji: ${e.message}`);
         }
@@ -154,6 +165,9 @@ document.addEventListener('DOMContentLoaded', () => {
             appendSystem('🔌 Połączono z serwerem.');
             setTimeout(() => {
                 ws.send(JSON.stringify({ action: 'set_role', role: roleSelect.value }));
+                if (workspaceSelect.value) {
+                    ws.send(JSON.stringify({ action: 'set_workspace', path: workspaceSelect.value }));
+                }
             }, 300);
         };
 
@@ -694,6 +708,7 @@ document.addEventListener('DOMContentLoaded', () => {
             action: 'message',
             message: msg + attachmentText,
             model: modelSelect.value,
+            workspace: workspaceSelect.value,
             attachments: attachments.map(({ name, type, data }) => ({ name, type, data })),
         }));
         attachments = [];
@@ -749,6 +764,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ws && isConnected) {
             ws.send(JSON.stringify({ action: 'set_role', role: roleSelect.value }));
             showToast(`Rola: ${roleSelect.value}`, 'info');
+        }
+    });
+
+    workspaceSelect.addEventListener('change', () => {
+        if (ws && isConnected) {
+            ws.send(JSON.stringify({ action: 'set_workspace', path: workspaceSelect.value }));
+            showToast(`Folder agenta: ${workspaceSelect.options[workspaceSelect.selectedIndex].text}`, 'info');
         }
     });
 
