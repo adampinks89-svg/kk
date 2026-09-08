@@ -1,0 +1,18 @@
+# Core backend
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0.0
+
+# HTTP client (RAG API, Ollama fallback)
+httpx>=0.27.0
+
+# AI / LLM
+ollama>=0.1.5
+
+# Linter (opcjonalnie – fallback do py_compile jeśli niedostępne)
+ruff>=0.4.0
+
+# Stare zależności (zachowane dla kompatybilności)
+customtkinter>=5.2.0
+google-generativeai>=0.3.0
+requests>=2.31.0

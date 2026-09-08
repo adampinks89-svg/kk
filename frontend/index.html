@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agent AI Studio</title>
+    <meta name="description" content="Lokalny autonomiczny agent kodujący z pętlą ReAct, diffami plików i Human-in-the-Loop.">
+    <link rel="stylesheet" href="/static/style.css?v=4">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Markdown i Podświetlanie składni kodu -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+
+        <!-- ══════════════════════════════════════════
+             SIDEBAR
+        ═══════════════════════════════════════════ -->
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">⚡</span>
+                <h1>AI Studio</h1>
+            </div>
+
+            <div class="status-box">
+                <div class="status-row" id="shield-status">
+                    <span class="status-dot dot-green"></span>
+                    Shield AKTYWNY
+                </div>
+                <div class="status-row" id="ollama-status">
+                    <span class="status-dot dot-red"></span>
+                    Ollama: Łączenie...
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="model-select">Model</label>
+                <select id="model-select" class="dropdown">
+                    <option>Szukanie modeli...</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="role-select">Rola Agenta</label>
+                <select id="role-select" class="dropdown">
+                    <option>Ładowanie ról...</option>
+                </select>
+            </div>
+
+            <div class="sidebar-divider"></div>
+
+            <!-- Panel widoczności (Usunięty ze względu na zunifikowany strumień) -->
+
+            <div class="sidebar-divider"></div>
+
+            <!-- Statystyki sesji -->
+            <div class="session-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Iteracje narzędzi</span>
+                    <span class="stat-value" id="stat-tools">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Pliki zmienione</span>
+                    <span class="stat-value" id="stat-files">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Linie dodane</span>
+                    <span class="stat-value stat-green" id="stat-added">+0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Linie usunięte</span>
+                    <span class="stat-value stat-red" id="stat-removed">-0</span>
+                </div>
+            </div>
+
+            <div class="sidebar-divider"></div>
+
+            <button id="clear-ctx-btn" class="btn btn-danger">🗑 Wyczyść Kontekst</button>
+            <button id="show-logs-btn" class="btn btn-secondary">📋 Logi Systemowe</button>
+            <button id="show-snapshots-btn" class="btn btn-secondary">💾 Migawki (Rollback)</button>
+        </aside>
+
+        <!-- ══════════════════════════════════════════
+             GŁÓWNY OBSZAR ROBOCZY (Stream of Consciousness)
+        ═══════════════════════════════════════════ -->
+        <main class="workspace">
+            <section class="panel panel-chat" style="border-right: none;">
+                <div class="panel-header">
+                    <span class="panel-icon">🌊</span>
+                    <h2>Strumień Agenta (Stream of Consciousness)</h2>
+                    <div class="panel-actions">
+                        <span id="agent-working" class="working-badge hidden">
+                            <span class="spinner"></span> Pracuje...
+                        </span>
+                    </div>
+                </div>
+                <div class="panel-body" id="chat-output">
+                    <p class="panel-empty">Wpisz wiadomość aby rozpocząć strumień...</p>
+                </div>
+                <div class="input-area">
+                    <div class="input-wrapper">
+                        <textarea
+                            id="message-input"
+                            placeholder="Wpisz wiadomość... (Enter = nowa linia, Ctrl+Enter = wyślij)"
+                            rows="3"
+                        ></textarea>
+                        <div class="input-hint">Ctrl+Enter aby wysłać</div>
+                    </div>
+                    <div class="input-buttons">
+                        <button id="send-btn" class="btn btn-accent">
+                            <span>Wyślij</span>
+                            <span class="key-hint">⌃↵</span>
+                        </button>
+                        <button id="stop-btn" class="btn btn-danger" disabled>⛔ Stop</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         MODAL: Human-in-the-Loop (Zatwierdzanie)
+    ═══════════════════════════════════════════ -->
+    <div id="approval-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="approval-title">
+        <div class="modal-content modal-approval">
+            <div class="modal-header">
+                <span class="modal-icon">⚠️</span>
+                <h2 id="approval-title">Zatwierdzenie Operacji</h2>
+            </div>
+            <div class="modal-body">
+                <div class="approval-info">
+                    <div class="approval-meta">
+                        <span class="meta-label">Operacja:</span>
+                        <span id="approval-operation" class="meta-value">write</span>
+                    </div>
+                    <div class="approval-meta">
+                        <span class="meta-label">Plik:</span>
+                        <span id="approval-path" class="meta-value mono"></span>
+                    </div>
+                    <div class="approval-stats">
+                        <span class="diff-stat stat-add" id="approval-added">+0</span>
+                        <span class="diff-stat stat-remove" id="approval-removed">-0</span>
+                    </div>
+                </div>
+                <!-- Side-by-side diff viewer -->
+                <div class="diff-viewer" id="approval-diff">
+                    <div class="diff-header">
+                        <span>Przed zmianą</span>
+                        <span>Po zmianie</span>
+                    </div>
+                    <div class="diff-content" id="diff-content">
+                        <!-- Linie diffu renderowane przez JS -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="approve-btn" class="btn btn-success">✅ Zatwierdź (Ctrl+Enter)</button>
+                <button id="reject-btn" class="btn btn-danger">⛔ Odrzuć (Esc)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         MODAL: Logi Systemowe
+    ═══════════════════════════════════════════ -->
+    <div id="logs-modal" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-icon">📋</span>
+                <h2>Logi Systemowe Agenta</h2>
+                <button class="modal-close" id="logs-close-btn" aria-label="Zamknij">✕</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="logs-textarea" readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         MODAL: Migawki (Rollback)
+    ═══════════════════════════════════════════ -->
+    <div id="snapshots-modal" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-icon">💾</span>
+                <h2>Migawki Plików (Rollback)</h2>
+                <button class="modal-close" id="snapshots-close-btn" aria-label="Zamknij">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="snapshots-list" class="snapshots-list">
+                    <p class="panel-empty">Ładowanie migawek...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         TOAST notyfikacje
+    ═══════════════════════════════════════════ -->
+    <div id="toast-container"></div>
+
+    <script src="/static/app.js?v=4"></script>
+</body>
+</html>

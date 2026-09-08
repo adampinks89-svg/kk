@@ -1,0 +1,32 @@
+{
+    "languages": {
+        "python": {
+            "name": "Python 3",
+            "official_docs": "https://docs.python.org/3/",
+            "tutorial": "https://docs.python.org/3/tutorial/",
+            "description": "Oficjalna dokumentacja języka Python."
+        },
+        "c": {
+            "name": "C Standard Library & Reference",
+            "official_docs": "https://en.cppreference.com/w/c",
+            "description": "Dokumentacja standardu języka C (Cppreference)."
+        },
+        "cpp": {
+            "name": "C++ Standard Library & Reference",
+            "official_docs": "https://en.cppreference.com/w/cpp",
+            "tutorial": "https://en.cppreference.com/w/",
+            "description": "Kompleksowa dokumentacja C++."
+        },
+        "javascript": {
+            "name": "MDN JavaScript Documentation",
+            "official_docs": "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
+            "guide": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide",
+            "description": "Oficjalny przewodnik i dokumentacja MDN Web Docs dla JS."
+        },
+        "csharp": {
+            "name": "Microsoft C# Documentation",
+            "official_docs": "https://learn.microsoft.com/en-us/dotnet/csharp/",
+            "description": "Oficjalna dokumentacja techniczna platformy .NET i języka C#."
+        }
+    }
+}
