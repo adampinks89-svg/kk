@@ -154,6 +154,26 @@ body {
 
 .dropdown:focus { border-color: var(--accent); }
 
+.workspace-picker-control {
+    display: flex;
+    gap: 6px;
+}
+
+.workspace-picker-control .dropdown { min-width: 0; flex: 1; }
+
+.icon-btn {
+    width: 38px;
+    border: 1px solid var(--bg-surface1);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface0);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 17px;
+    transition: all var(--transition);
+}
+
+.icon-btn:hover { background: var(--bg-surface1); border-color: var(--accent); }
+
 /* Toggle switches */
 .toggle-group { display: flex; flex-direction: column; gap: 8px; }
 .toggle-label {
@@ -710,6 +730,58 @@ textarea:focus-visible {
     flex-direction: column;
     box-shadow: var(--shadow-modal);
     overflow: hidden;
+}
+
+.workspace-modal-content { max-width: 720px; }
+
+.workspace-path-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.workspace-path-row code {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+.workspace-directory-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+}
+
+.workspace-directory {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--bg-surface1);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface0);
+    color: var(--text);
+    cursor: pointer;
+    font: 13px var(--font-ui);
+    text-align: left;
+    transition: all var(--transition);
+}
+
+.workspace-directory span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workspace-directory:hover {
+    background: var(--bg-surface1);
+    border-color: var(--accent);
 }
 
 .modal-header {

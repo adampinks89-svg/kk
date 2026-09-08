@@ -17,6 +17,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const modelSelect       = document.getElementById('model-select');
     const roleSelect        = document.getElementById('role-select');
     const workspaceSelect   = document.getElementById('workspace-select');
+    const browseWorkspaceBtn = document.getElementById('browse-workspace-btn');
+    const workspaceModal    = document.getElementById('workspace-modal');
+    const workspaceCloseBtn = document.getElementById('workspace-close-btn');
+    const workspaceParentBtn = document.getElementById('workspace-parent-btn');
+    const workspaceCurrentPath = document.getElementById('workspace-current-path');
+    const workspaceDirectoryList = document.getElementById('workspace-directory-list');
+    const workspaceUseBtn = document.getElementById('workspace-use-btn');
     const clearCtxBtn       = document.getElementById('clear-ctx-btn');
     const showLogsBtn       = document.getElementById('show-logs-btn');
     const showSnapshotsBtn  = document.getElementById('show-snapshots-btn');
@@ -67,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let thoughtCounter = 0;
     let fileCounter = 0;
     let attachments = [];
+    let browsedWorkspacePath = '';
 
     // Konfiguracja parsera Markdown
     if (typeof marked !== 'undefined') {
@@ -774,6 +782,65 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    async function loadWorkspaceDirectory(path) {
+        workspaceDirectoryList.innerHTML = '<p class="panel-empty">Ładowanie katalogów...</p>';
+        try {
+            const query = path ? `?path=${encodeURIComponent(path)}` : '';
+            const response = await fetch(`/api/directories${query}`);
+            const data = await response.json();
+            if (!response.ok || data.error) throw new Error(data.error || 'Nie udało się odczytać katalogu.');
+
+            browsedWorkspacePath = data.path;
+            workspaceCurrentPath.textContent = data.path;
+            workspaceCurrentPath.dataset.parent = data.parent || '';
+            workspaceParentBtn.disabled = !data.parent;
+            workspaceDirectoryList.innerHTML = '';
+
+            if (!data.directories.length) {
+                workspaceDirectoryList.innerHTML = '<p class="panel-empty">Brak podkatalogów.</p>';
+                return;
+            }
+            data.directories.forEach(directory => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'workspace-directory';
+                button.innerHTML = `<span>📁</span><span>${escapeHtml(directory.name)}</span>`;
+                button.addEventListener('click', () => loadWorkspaceDirectory(directory.path));
+                workspaceDirectoryList.appendChild(button);
+            });
+        } catch (error) {
+            workspaceDirectoryList.innerHTML = '';
+            appendError(`❌ ${error.message}`);
+        }
+    }
+
+    function closeWorkspaceModal() {
+        workspaceModal.classList.remove('active');
+    }
+
+    browseWorkspaceBtn.addEventListener('click', () => {
+        workspaceModal.classList.add('active');
+        loadWorkspaceDirectory(workspaceSelect.value || '');
+    });
+    workspaceCloseBtn.addEventListener('click', closeWorkspaceModal);
+    workspaceParentBtn.addEventListener('click', () => {
+        if (!workspaceParentBtn.disabled) loadWorkspaceDirectory(workspaceCurrentPath.dataset.parent || '');
+    });
+    workspaceUseBtn.addEventListener('click', () => {
+        const option = Array.from(workspaceSelect.options).find(item => item.value === browsedWorkspacePath);
+        if (option) {
+            workspaceSelect.value = browsedWorkspacePath;
+        } else {
+            const newOption = document.createElement('option');
+            newOption.value = browsedWorkspacePath;
+            newOption.textContent = browsedWorkspacePath.split(/[\\/]/).pop() || browsedWorkspacePath;
+            workspaceSelect.appendChild(newOption);
+            workspaceSelect.value = browsedWorkspacePath;
+        }
+        workspaceSelect.dispatchEvent(new Event('change'));
+        closeWorkspaceModal();
+    });
+
     // Toggles paneli
     // Usunięto nasłuchiwacze togli paneli, ponieważ zrezygnowaliśmy z nich na rzecz pojedynczego widoku.
 
@@ -785,6 +852,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (approvalModal.classList.contains('active')) {
             if (e.key === 'Escape') sendApproval(false);
             if (e.ctrlKey && e.key === 'Enter') sendApproval(true);
+        }
+        if (e.key === 'Escape' && workspaceModal.classList.contains('active')) {
+            closeWorkspaceModal();
         }
     });
 
@@ -860,7 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Zamykanie modali przez kliknięcie tła
-    [logsModal, snapshotsModal].forEach(modal => {
+    [logsModal, snapshotsModal, workspaceModal].forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.classList.remove('active');
         });

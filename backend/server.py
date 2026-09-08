@@ -98,6 +98,28 @@ async def get_workspaces():
     return sorted(unique.values(), key=lambda item: item["path"])
 
 
+@app.get("/api/directories")
+async def get_directories(path: str | None = None):
+    """Zwraca bieżący katalog i jego bezpośrednie podkatalogi do wyboru."""
+    requested_path = os.path.abspath(path or ALLOWED_WORKSPACES[0])
+    if not validate_path(requested_path) or not os.path.isdir(requested_path):
+        return {"error": "Katalog nie jest dostępny w dozwolonym workspace."}
+
+    directories = []
+    for entry in sorted(os.scandir(requested_path), key=lambda item: item.name.lower()):
+        if entry.is_dir() and not entry.name.startswith("."):
+            directories.append({"path": entry.path, "name": entry.name})
+
+    parent = os.path.dirname(requested_path)
+    parent_path = parent if validate_path(parent) and parent != requested_path else None
+    return {
+        "path": requested_path,
+        "name": os.path.basename(requested_path) or requested_path,
+        "parent": parent_path,
+        "directories": directories,
+    }
+
+
 @app.get("/api/logs")
 async def get_logs():
     logs = read_logs(100)

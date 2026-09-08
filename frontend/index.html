@@ -51,9 +51,12 @@
 
             <div class="control-group">
                 <label for="workspace-select">Folder docelowy</label>
-                <select id="workspace-select" class="dropdown" aria-describedby="workspace-help">
-                    <option>Ładowanie folderów...</option>
-                </select>
+                <div class="workspace-picker-control">
+                    <select id="workspace-select" class="dropdown" aria-describedby="workspace-help">
+                        <option>Ładowanie folderów...</option>
+                    </select>
+                    <button id="browse-workspace-btn" class="icon-btn" type="button" title="Wybierz folder docelowy" aria-label="Wybierz folder docelowy">📁</button>
+                </div>
                 <span id="workspace-help" class="control-help">Agent wykona polecenia w tym folderze.</span>
             </div>
 
@@ -129,6 +132,26 @@
                 </div>
             </section>
         </main>
+    </div>
+
+    <div id="workspace-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="workspace-modal-title">
+        <div class="modal-content workspace-modal-content">
+            <div class="modal-header">
+                <span class="modal-icon">📁</span>
+                <h2 id="workspace-modal-title">Wybierz folder docelowy</h2>
+                <button class="modal-close" id="workspace-close-btn" type="button" aria-label="Zamknij">✕</button>
+            </div>
+            <div class="modal-body workspace-browser">
+                <div class="workspace-path-row">
+                    <button id="workspace-parent-btn" class="btn btn-secondary btn-sm" type="button">⬆ Wyżej</button>
+                    <code id="workspace-current-path">Ładowanie...</code>
+                </div>
+                <div id="workspace-directory-list" class="workspace-directory-list" aria-live="polite"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="workspace-use-btn" class="btn btn-accent" type="button">✓ Użyj tego folderu</button>
+            </div>
+        </div>
     </div>
 
     <!-- ══════════════════════════════════════════
