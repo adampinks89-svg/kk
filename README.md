@@ -32,6 +32,14 @@ Następnie otwórz [http://127.0.0.1:8000](http://127.0.0.1:8000) w przeglądarc
 
 Serwer deweloperski działa z automatycznym przeładowaniem plików. Domyślnie nasłuchuje wyłącznie na `127.0.0.1`.
 
+## Tryb Windows i PowerShell
+
+`run_studio.bat` uruchamia `start_studio.ps1`, który ustawia `KK_WINDOWS_HOST=1` i startuje aplikację bezpośrednio na Windowsie. W tym trybie narzędzie `run_command_tool` wykonuje polecenia przez PowerShell, pokazuje komendę, wyjście, błąd, kod zakończenia i aktualny katalog w czacie. Wynik błędnej komendy trafia również do historii narzędzi, więc model może go automatycznie przeanalizować i zaproponować kolejną próbę.
+
+Tryb hosta daje agentowi dostęp do dowolnych istniejących plików i katalogów użytkownika. Włączaj go tylko lokalnie i świadomie: polecenia modelu mogą wykonywać operacje systemowe z uprawnieniami konta uruchamiającego aplikację. W środowisku deweloperskim bez Windowsa zmienna nie uruchamia PowerShell i pozostaje używany sandbox Docker.
+
+Polecenia `cd` i `Set-Location` są utrzymywane między wywołaniami: po każdej komendzie agent dostaje aktualny katalog roboczy. Przycisk 📁 pozwala również wskazać folder bezpośrednio w interfejsie.
+
 ## Wybór folderu docelowego
 
 W panelu bocznym pole **Folder docelowy** wskazuje katalog roboczy agenta. Kliknij ikonę folderu, aby otworzyć przeglądarkę katalogów:

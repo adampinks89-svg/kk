@@ -13,7 +13,7 @@ import shutil
 import subprocess
 from typing import Any
 
-from core.security import sanitize_command, validate_path
+from core.security import sanitize_command, unrestricted_workspace_enabled, validate_path
 
 
 def _result(success: bool, **data: Any) -> str:
@@ -79,7 +79,42 @@ def run_sandbox_tool(
 
 
 def run_command_tool(command: str, cwd: str = ".") -> str:
-    """Kompatybilny alias: polecenia agenta zawsze trafiają do sandboxa."""
+    """Uruchamia komendę w sandboxie albo bezpośrednio przez PowerShell na Windowsie."""
+    if unrestricted_workspace_enabled() and os.name == "nt":
+        workspace = _workspace(cwd)
+        if not workspace:
+            return _result(False, error="Nieprawidłowy katalog roboczy Windows.")
+        if not command or not sanitize_command(command):
+            return _result(False, error="Polecenie jest puste albo zawiera zablokowaną operację.")
+
+        powershell = shutil.which("powershell.exe") or shutil.which("pwsh.exe")
+        if not powershell:
+            return _result(False, error="Nie znaleziono PowerShell (powershell.exe/pwsh.exe).")
+        wrapped_command = f"$ErrorActionPreference='Continue'; {command}; (Get-Location).Path"
+        try:
+            process = subprocess.run(
+                [powershell, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", wrapped_command],
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+                timeout=120,
+                encoding="utf-8",
+                errors="replace",
+            )
+            lines = process.stdout.splitlines()
+            current_directory = lines.pop().strip() if lines else workspace
+            return _result(
+                process.returncode == 0,
+                returncode=process.returncode,
+                stdout="\n".join(lines),
+                stderr=process.stderr,
+                cwd=current_directory,
+                shell="powershell",
+            )
+        except subprocess.TimeoutExpired:
+            return _result(False, error="PowerShell przekroczył limit czasu (120s).", cwd=workspace)
+        except Exception as error:
+            return _result(False, error=f"Błąd uruchamiania PowerShell: {error}", cwd=workspace)
     return run_sandbox_tool(command, cwd=cwd)
 
 

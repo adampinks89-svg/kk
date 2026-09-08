@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multi-Agent AI Studio</title>
     <meta name="description" content="Lokalny autonomiczny agent kodujący z pętlą ReAct, diffami plików i Human-in-the-Loop.">
-    <link rel="stylesheet" href="/static/style.css?v=6">
+    <link rel="stylesheet" href="/static/style.css?v=7">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Markdown i Podświetlanie składni kodu -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -144,8 +144,10 @@
             <div class="modal-body workspace-browser">
                 <div class="workspace-path-row">
                     <button id="workspace-parent-btn" class="btn btn-secondary btn-sm" type="button">⬆ Wyżej</button>
-                    <code id="workspace-current-path">Ładowanie...</code>
+                    <input id="workspace-path-input" class="workspace-path-input" type="text" placeholder="Wklej ścieżkę folderu, np. C:\\Users\\..." aria-label="Ścieżka folderu">
+                    <button id="workspace-go-btn" class="btn btn-secondary btn-sm" type="button">Przejdź</button>
                 </div>
+                <code id="workspace-current-path" class="workspace-current-path">Ładowanie...</code>
                 <div id="workspace-directory-list" class="workspace-directory-list" aria-live="polite"></div>
             </div>
             <div class="modal-footer">
@@ -235,6 +237,6 @@
     ═══════════════════════════════════════════ -->
     <div id="toast-container"></div>
 
-    <script src="/static/app.js?v=6"></script>
+    <script src="/static/app.js?v=7"></script>
 </body>
 </html>

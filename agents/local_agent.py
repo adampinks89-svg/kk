@@ -19,7 +19,7 @@ from skills.registry import OLLAMA_TOOLS, execute_tool
 from core.logger import log_event, log_error
 from core.payload import (
     ThoughtPayload, FileEventPayload, MessagePayload,
-    LoopGuardPayload, SystemPayload, ErrorPayload
+    LoopGuardPayload, SystemPayload, ErrorPayload, TerminalEventPayload
 )
 
 # ---------------------------------------------------------------------------
@@ -411,6 +411,27 @@ def query_local_model_stream(
                     "TOOL_RESULT", f"Wynik {func_name}",
                     result_str[:500] + ("..." if len(result_str) > 500 else "")
                 )
+
+                if func_name == "run_command_tool":
+                    try:
+                        terminal_result = json.loads(result_str)
+                        yield TerminalEventPayload(
+                            command=args.get("command", ""),
+                            output=terminal_result.get("stdout", ""),
+                            error=terminal_result.get("stderr") or terminal_result.get("error", ""),
+                            exit_code=terminal_result.get("returncode"),
+                            cwd=terminal_result.get("cwd", args.get("cwd", "")),
+                            shell=terminal_result.get("shell", "sandbox"),
+                        ).to_dict()
+                        if terminal_result.get("cwd"):
+                            working_directory = terminal_result["cwd"]
+                            args["cwd"] = working_directory
+                    except (json.JSONDecodeError, TypeError):
+                        yield TerminalEventPayload(
+                            command=args.get("command", ""),
+                            error=result_str,
+                            cwd=args.get("cwd", ""),
+                        ).to_dict()
 
                 # --- Przetwórz wynik i emituj file_event ---
                 if func_name in ("write_file_tool", "read_file_tool", "list_dir_tool"):

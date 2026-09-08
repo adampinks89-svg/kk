@@ -207,8 +207,9 @@ OLLAMA_TOOLS = [
         "function": {
             "name": "run_command_tool",
             "description": (
-                "Uruchamia polecenie lub skrypt w systemie operacyjnym (np. 'python3 calculator.py'). "
-                "Używaj do testowania napisanych aplikacji okienkowych i skryptów."
+                "Uruchamia polecenie lub skrypt w systemie operacyjnym. W trybie Windows host używa PowerShell, "
+                "pokazuje wynik w czacie i utrzymuje katalog po komendach cd/Set-Location. "
+                "Błędy są zwracane do modelu jako wynik narzędzia."
             ),
             "parameters": {
                 "type": "object",

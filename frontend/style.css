@@ -684,6 +684,12 @@ textarea:focus-visible {
     font-weight: 600;
 }
 
+.terminal-cwd {
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 8px;
+}
+
 /* ─── Pływki plików (File Tiles) ─────────────────────────────── */
 .file-tile {
     background: var(--bg-surface0);
@@ -741,7 +747,23 @@ textarea:focus-visible {
     margin-bottom: 16px;
 }
 
-.workspace-path-row code {
+.workspace-path-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg-surface0);
+    border: 1px solid var(--bg-surface1);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    padding: 9px 10px;
+    font: 12px var(--font-mono);
+    outline: none;
+}
+
+.workspace-path-input:focus { border-color: var(--accent); }
+
+.workspace-current-path {
+    display: block;
+    margin: -4px 0 16px;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;

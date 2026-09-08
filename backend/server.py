@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from agents.local_agent import check_ollama_status, query_local_model_stream
 from core.logger import read_logs
 from core.snapshot import list_snapshots, restore_snapshot
-from core.security import ALLOWED_WORKSPACES, validate_path
+from core.security import ALLOWED_WORKSPACES, unrestricted_workspace_enabled, validate_path
 
 app = FastAPI(title="Multi-Agent AI Studio Backend")
 
@@ -87,7 +87,8 @@ async def get_roles():
 async def get_workspaces():
     """Zwraca katalogi, w których agent może wykonywać operacje."""
     workspaces = []
-    for root in ALLOWED_WORKSPACES:
+    roots = [os.path.abspath(os.getcwd())] if unrestricted_workspace_enabled() else ALLOWED_WORKSPACES
+    for root in roots:
         if not os.path.isdir(root):
             continue
         workspaces.append({"path": root, "name": os.path.basename(root) or root})
@@ -101,7 +102,7 @@ async def get_workspaces():
 @app.get("/api/directories")
 async def get_directories(path: str | None = None):
     """Zwraca bieżący katalog i jego bezpośrednie podkatalogi do wyboru."""
-    requested_path = os.path.abspath(path or ALLOWED_WORKSPACES[0])
+    requested_path = os.path.abspath(path or os.getcwd())
     if not validate_path(requested_path) or not os.path.isdir(requested_path):
         return {"error": "Katalog nie jest dostępny w dozwolonym workspace."}
 

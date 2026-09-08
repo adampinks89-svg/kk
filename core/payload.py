@@ -24,7 +24,7 @@ from typing import Literal, Optional, List
 EventType = Literal[
     "thought", "file_event", "message",
     "approval_request", "system", "error",
-    "done", "loop_guard", "task_update"
+    "done", "loop_guard", "task_update", "terminal_event"
 ]
 
 FileOperation = Literal["read", "write", "create", "delete", "list"]
@@ -128,6 +128,29 @@ class ErrorPayload:
 
     def to_dict(self) -> dict:
         return {"type": self.type, "text": self.text}
+
+
+@dataclass
+class TerminalEventPayload:
+    """Wynik polecenia powłoki widoczny bezpośrednio w strumieniu czatu."""
+    command: str
+    output: str = ""
+    error: str = ""
+    exit_code: int | None = None
+    cwd: str = ""
+    shell: str = ""
+    type: str = "terminal_event"
+
+    def to_dict(self) -> dict:
+        return {
+            "type": self.type,
+            "command": self.command,
+            "output": self.output,
+            "error": self.error,
+            "exit_code": self.exit_code,
+            "cwd": self.cwd,
+            "shell": self.shell,
+        }
 
 
 @dataclass
