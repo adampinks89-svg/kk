@@ -222,8 +222,17 @@ async def websocket_endpoint(websocket: WebSocket):
             elif action == "message":
                 msg = payload.get("message")
                 model = payload.get("model")
+                attachments = payload.get("attachments") or []
 
-                messages.append({"role": "user", "content": msg})
+                user_message = {"role": "user", "content": msg or ""}
+                image_data = [
+                    item.get("data") for item in attachments
+                    if item.get("type", "").startswith("image/") and item.get("data")
+                ]
+                if image_data:
+                    user_message["images"] = image_data
+
+                messages.append(user_message)
                 stop_event = threading.Event()
                 stop_events[session_id] = stop_event
 

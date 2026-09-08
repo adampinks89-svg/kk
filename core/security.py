@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 ALLOWED_WORKSPACES = [
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
@@ -10,9 +11,11 @@ def validate_path(target_path: str) -> bool:
     """Sprawdza, czy ścieżka znajduje się w dozwolonych obszarach roboczych (sandboxach)."""
     try:
         # Resolve any symlinks and relative path components
-        abs_target = os.path.abspath(target_path)
-        # Check if the resolved path starts with any of the allowed workspaces
-        return any(abs_target.startswith(workspace) for workspace in ALLOWED_WORKSPACES)
+        abs_target = Path(target_path).resolve()
+        return any(
+            os.path.commonpath((str(abs_target), workspace)) == workspace
+            for workspace in ALLOWED_WORKSPACES
+        )
     except Exception:
         return False
 

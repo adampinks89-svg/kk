@@ -5,14 +5,14 @@ Ulepszona wersja z:
   - Automatycznym tworzeniem migawki (snapshot) przed zapisem
   - Wyliczaniem diffów przez difflib (added/removed lines)
   - Zwracaniem ustrukturyzowanego JSON zamiast czystego tekstu
-  - Integracją z linterem po zapisie pliku .py
+    - Integracją z linterem po zapisie obsługiwanego pliku źródłowego
 """
 import os
 import json
 import difflib
 from core.security import validate_path
 from core.snapshot import create_snapshot
-from core.linter import run_linter, format_lint_errors
+from core.linter import SUPPORTED_EXTENSIONS, run_linter, format_lint_errors
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +136,7 @@ def write_file_tool(path: str, content: str) -> str:
     Zapisuje zawartość do pliku z automatycznym:
       1. Tworzeniem migawki (backup) jeśli plik istnieje
       2. Wyliczaniem diffu (added/removed lines)
-      3. Uruchomieniem lintera po zapisie (tylko .py)
+    3. Uruchomieniem właściwego lintera po zapisie pliku źródłowego
 
     Zwraca JSON z wynikiem operacji i statystykami diffu.
     """
@@ -180,7 +180,7 @@ def write_file_tool(path: str, content: str) -> str:
     # 4. Uruchom linter dla plików Python
     lint_errors = []
     lint_message = ""
-    if path.endswith(".py"):
+    if os.path.splitext(path)[1].lower() in SUPPORTED_EXTENSIONS:
         try:
             lint_errors = run_linter(path)
             lint_message = format_lint_errors(lint_errors)

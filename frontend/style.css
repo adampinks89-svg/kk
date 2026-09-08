@@ -1,39 +1,39 @@
 /* ═══════════════════════════════════════════════════════════════════
-   style_3.css – Multi-Agent AI Studio
-   Paleta: Catppuccin Mocha + akcenty neonowe
+    style.css – Multi-Agent AI Studio
+    Paleta: grafit + chłodny akcent
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ─── Zmienne CSS ──────────────────────────────────────────────── */
 :root {
-    --bg-base:      #11111B;
-    --bg-mantle:    #181825;
-    --bg-crust:     #1E1E2E;
-    --bg-surface0:  #313244;
-    --bg-surface1:  #45475A;
-    --bg-overlay:   #6C7086;
+    --bg-base:      #0f1113;
+    --bg-mantle:    #171a1e;
+    --bg-crust:     #20242a;
+    --bg-surface0:  #2a3037;
+    --bg-surface1:  #3b434c;
+    --bg-overlay:   #6f7a85;
 
-    --text:         #CDD6F4;
-    --subtext:      #BAC2DE;
-    --muted:        #A6ADC8;
+    --text:         #edf1f4;
+    --subtext:      #c5ccd3;
+    --muted:        #8e99a4;
 
-    --accent:       #CBA6F7;   /* fiolet */
-    --blue:         #89B4FA;
-    --green:        #A6E3A1;
-    --red:          #F38BA8;
-    --yellow:       #F9E2AF;
-    --peach:        #FAB387;
-    --teal:         #94E2D5;
+    --accent:       #8bd3e6;
+    --blue:         #9bc4ee;
+    --green:        #9bd4b0;
+    --red:          #ef9a9a;
+    --yellow:       #e8c982;
+    --peach:        #e4ae82;
+    --teal:         #8bd3c7;
 
     --radius-sm:    6px;
     --radius-md:    10px;
     --radius-lg:    16px;
     --radius-xl:    20px;
 
-    --shadow-card:  0 4px 20px rgba(0,0,0,0.4);
+    --shadow-card:  0 18px 60px rgba(0,0,0,0.35);
     --shadow-modal: 0 20px 60px rgba(0,0,0,0.7);
 
-    --font-ui:   'Inter', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-ui:   'IBM Plex Sans', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'JetBrains Mono', monospace;
 
     --transition: 0.18s ease;
 }
@@ -43,7 +43,7 @@
 
 body {
     font-family: var(--font-ui);
-    background: var(--bg-base);
+    background: #0b0d0f;
     color: var(--text);
     height: 100vh;
     display: flex;
@@ -55,8 +55,8 @@ body {
 /* ─── Layout ──────────────────────────────────────────────────── */
 .app-container {
     display: flex;
-    width: 99vw;
-    height: 99vh;
+    width: min(1500px, 98vw);
+    height: min(960px, 96vh);
     background: var(--bg-crust);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-card);
@@ -87,10 +87,8 @@ body {
 .logo h1 {
     font-size: 18px;
     font-weight: 700;
-    background: linear-gradient(135deg, var(--accent), var(--blue));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--text);
+    letter-spacing: -0.01em;
 }
 
 .sidebar-divider {
@@ -264,7 +262,7 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 16px;
+    padding: 14px 18px;
     background: var(--bg-mantle);
     border-bottom: 1px solid var(--bg-surface0);
     flex-shrink: 0;
@@ -277,7 +275,7 @@ body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--subtext);
+    color: var(--text);
     flex: 1;
 }
 
@@ -297,7 +295,7 @@ body {
 .panel-body {
     flex: 1;
     overflow-y: auto;
-    padding: 12px;
+    padding: 20px clamp(16px, 3vw, 42px);
     scroll-behavior: smooth;
 }
 
@@ -339,8 +337,9 @@ body {
 
 /* Wiadomości */
 .message {
-    margin-bottom: 10px;
-    padding: 10px 14px;
+    margin: 0 auto 14px;
+    max-width: 980px;
+    padding: 13px 16px;
     border-radius: var(--radius-md);
     font-size: 14px;
     line-height: 1.6;
@@ -349,7 +348,7 @@ body {
 }
 
 .message-user {
-    background: rgba(137, 180, 250, 0.1);
+    background: rgba(155, 196, 238, 0.08);
     border-left: 3px solid var(--blue);
 }
 
@@ -365,7 +364,8 @@ body {
 
 .message-agent {
     color: var(--text);
-    background: rgba(255,255,255, 0.02);
+    background: rgba(255,255,255, 0.025);
+    border: 1px solid rgba(255,255,255,0.045);
 }
 
 .message-system {
@@ -407,25 +407,76 @@ body {
 
 /* Bloki kodu (marked.js) */
 .message pre {
-    background: #1a1a2e;
-    border-radius: var(--radius-md);
-    padding: 12px 14px;
+    position: relative;
+    background: #15181b;
+    border-radius: 8px;
+    padding: 42px 16px 16px;
     overflow-x: auto;
     margin: 8px 0;
-    border: 1px solid var(--bg-surface0);
+    border: 1px solid #3a424b;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.18);
 }
+
+.code-toolbar {
+    position: absolute;
+    inset: 0 0 auto;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 9px 0 13px;
+    background: #252a30;
+    border-bottom: 1px solid #3a424b;
+}
+
+.code-language {
+    color: var(--muted);
+    font: 600 10px var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.copy-code-btn {
+    position: static;
+    padding: 4px 7px;
+    border: 1px solid var(--bg-surface1);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--subtext);
+    cursor: pointer;
+    font: 11px var(--font-ui);
+}
+
+.copy-code-btn:hover { color: var(--text); background: var(--bg-surface1); }
+
+button:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: #424b55;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover { background: #596571; border-width: 2px; }
 
 .message pre code {
     font-family: var(--font-mono);
-    font-size: 13px;
-    line-height: 1.5;
+    font-size: 12.5px;
+    line-height: 1.65;
     background: transparent;
     padding: 0;
 }
 
 /* Kody inline */
 .message code:not(pre code) {
-    background: rgba(203, 166, 247, 0.15);
+    background: rgba(139, 211, 230, 0.11);
     color: var(--accent);
     padding: 2px 6px;
     border-radius: 4px;
@@ -454,7 +505,7 @@ body {
 .input-area {
     display: flex;
     flex-direction: column;
-    padding: 16px;
+    padding: 14px clamp(16px, 3vw, 42px) 18px;
     background: var(--bg-mantle);
     border-top: 1px solid var(--bg-surface0);
     gap: 12px;
@@ -466,11 +517,11 @@ body {
 
 #message-input {
     width: 100%;
-    background: var(--bg-surface0);
+    background: #252a30;
     color: var(--text);
     border: 1px solid var(--bg-surface1);
     border-radius: var(--radius-md);
-    padding: 12px 14px;
+    padding: 14px 16px;
     font-family: var(--font-ui);
     font-size: 14px;
     resize: none;
@@ -496,6 +547,51 @@ body {
     justify-content: flex-end;
 }
 
+.attachment-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.attachment-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 5px 8px;
+    border: 1px solid var(--bg-surface1);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface0);
+    color: var(--subtext);
+    font-size: 12px;
+}
+
+.attachment-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-remove {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+}
+.attachment-remove:hover { color: var(--red); }
+
+@media (max-width: 720px) {
+    body { align-items: stretch; }
+    .app-container {
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+    }
+    .sidebar { width: 214px; min-width: 190px; padding: 16px 12px; }
+    .panel-body { padding: 14px 10px; }
+    .input-area { padding: 10px; }
+    .input-buttons { flex-wrap: wrap; }
+    .input-buttons .btn { flex: 1; min-width: 105px; }
+    .message pre { margin-left: -4px; margin-right: -4px; }
+}
+
 .key-hint {
     font-size: 10px;
     background: rgba(0,0,0,0.2);
@@ -506,8 +602,11 @@ body {
 
 /* ─── Bloki myśli (wbudowane w czat) ─────────────────────────── */
 .thought-block {
-    background: var(--bg-surface0);
-    border-left: 3px solid var(--accent);
+    max-width: 980px;
+    margin-left: auto;
+    margin-right: auto;
+    background: rgba(142,153,164,0.09);
+    border-left: 2px solid var(--accent);
     border-radius: var(--radius-md);
     padding: 12px;
     margin: 4px 0 10px 0;
@@ -540,7 +639,8 @@ body {
     background: #11111b; /* Crustic dark */
     border: 1px solid var(--bg-surface0);
     border-radius: var(--radius-md);
-    margin: 4px 0 10px 0;
+    max-width: 980px;
+    margin: 4px auto 10px;
     overflow: hidden;
     font-family: var(--font-mono);
     font-size: 12px;

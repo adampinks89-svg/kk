@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const chatOutput        = document.getElementById('chat-output');
     const messageInput      = document.getElementById('message-input');
+    const fileInput         = document.getElementById('file-input');
+    const attachBtn         = document.getElementById('attach-btn');
+    const attachmentList    = document.getElementById('attachment-list');
     const sendBtn           = document.getElementById('send-btn');
     const stopBtn           = document.getElementById('stop-btn');
     const agentWorking      = document.getElementById('agent-working');
@@ -62,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let sessionStats = { tools: 0, files: 0, added: 0, removed: 0 };
     let thoughtCounter = 0;
     let fileCounter = 0;
+    let attachments = [];
 
     // Konfiguracja parsera Markdown
     if (typeof marked !== 'undefined') {
@@ -77,6 +81,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // Bufor aktywnego bloku wiadomości
     let activeMessageEl = null;
     let activeMessageText = "";
+    let autoFollowChat = true;
+    const chatBottomThreshold = 24;
+
+    function isChatNearBottom() {
+        return chatOutput.scrollHeight - chatOutput.scrollTop - chatOutput.clientHeight <= chatBottomThreshold;
+    }
+
+    function scrollChatToBottom() {
+        if (autoFollowChat) {
+            chatOutput.scrollTop = chatOutput.scrollHeight;
+        }
+    }
+
+    chatOutput.addEventListener('scroll', () => {
+        autoFollowChat = isChatNearBottom();
+    });
 
     // ─── Inicjalizacja ────────────────────────────────────────────
     async function init() {
@@ -231,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (text) {
             activeThoughtText += text;
             activeThoughtEl.innerHTML = marked ? marked.parse(activeThoughtText) : activeThoughtText;
-            chatOutput.scrollTop = chatOutput.scrollHeight;
+            scrollChatToBottom();
         }
     }
 
@@ -256,11 +276,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeMessageEl.querySelectorAll('pre code').forEach((block) => {
                     hljs.highlightElement(block);
                 });
+                addCopyButtons(activeMessageEl);
             } else {
                 activeMessageEl.textContent = activeMessageText;
             }
 
-            chatOutput.scrollTop = chatOutput.scrollHeight;
+            scrollChatToBottom();
         } else {
             // Inne tagi (code, tool, system, error) – osobne bańki
             finalizeMessageBlock();
@@ -271,11 +292,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.querySelectorAll('pre code').forEach((block) => {
                     hljs.highlightElement(block);
                 });
+                addCopyButtons(el);
             } else {
                 el.textContent = text;
             }
             chatOutput.appendChild(el);
-            chatOutput.scrollTop = chatOutput.scrollHeight;
+            scrollChatToBottom();
         }
     }
 
@@ -341,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         chatOutput.appendChild(tile);
-        chatOutput.scrollTop = chatOutput.scrollHeight;
+        scrollChatToBottom();
 
         updateStats();
     }
@@ -387,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         terminalBlock.appendChild(body);
         chatOutput.appendChild(terminalBlock);
-        chatOutput.scrollTop = chatOutput.scrollHeight;
+        scrollChatToBottom();
     }
 
     // ─── Human-in-the-Loop ────────────────────────────────────────
@@ -474,7 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         chatOutput.appendChild(el);
-        chatOutput.scrollTop = chatOutput.scrollHeight;
+        scrollChatToBottom();
     }
 
     // ─── Helpers ──────────────────────────────────────────────────
@@ -501,7 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
             el.textContent = text;
         }
         chatOutput.appendChild(el);
-        chatOutput.scrollTop = chatOutput.scrollHeight;
+        scrollChatToBottom();
     }
 
     function appendError(text) {
@@ -510,7 +532,7 @@ document.addEventListener('DOMContentLoaded', () => {
         el.className = 'message message-error animate-in';
         el.textContent = text;
         chatOutput.appendChild(el);
-        chatOutput.scrollTop = chatOutput.scrollHeight;
+        scrollChatToBottom();
     }
 
     function appendUserMessage(text) {
@@ -520,7 +542,83 @@ document.addEventListener('DOMContentLoaded', () => {
         el.className = 'message message-user animate-in';
         el.innerHTML = `<span class="user-label">Ty</span><p>${escapeHtml(text)}</p>`;
         chatOutput.appendChild(el);
-        chatOutput.scrollTop = chatOutput.scrollHeight;
+        scrollChatToBottom();
+    }
+
+    function addCopyButtons(container) {
+        container.querySelectorAll('pre').forEach((pre) => {
+            if (pre.querySelector('.copy-code-btn')) return;
+
+            const codeElement = pre.querySelector('code');
+            const languageClass = Array.from(codeElement?.classList || [])
+                .find(className => className.startsWith('language-'));
+            const language = languageClass ? languageClass.replace('language-', '') : 'kod';
+            const toolbar = document.createElement('div');
+            toolbar.className = 'code-toolbar';
+
+            const languageLabel = document.createElement('span');
+            languageLabel.className = 'code-language';
+            languageLabel.textContent = language;
+            toolbar.appendChild(languageLabel);
+
+            const button = document.createElement('button');
+            button.className = 'copy-code-btn';
+            button.type = 'button';
+            button.textContent = 'Kopiuj';
+            button.title = 'Skopiuj kod do schowka';
+            button.addEventListener('click', async () => {
+                const code = codeElement?.textContent || '';
+                try {
+                    await navigator.clipboard.writeText(code);
+                    button.textContent = 'Skopiowano';
+                    setTimeout(() => { button.textContent = 'Kopiuj'; }, 1400);
+                } catch (error) {
+                    showToast('Nie udało się skopiować kodu', 'error');
+                }
+            });
+            toolbar.appendChild(button);
+            pre.appendChild(toolbar);
+        });
+    }
+
+    function renderAttachments() {
+        attachmentList.innerHTML = '';
+        attachments.forEach((attachment, index) => {
+            const item = document.createElement('div');
+            item.className = 'attachment-item';
+            item.innerHTML = `<span>${attachment.type.startsWith('image/') ? '🖼️' : '📄'} ${escapeHtml(attachment.name)}</span>`;
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'attachment-remove';
+            remove.textContent = '×';
+            remove.title = 'Usuń załącznik';
+            remove.addEventListener('click', () => {
+                attachments.splice(index, 1);
+                renderAttachments();
+            });
+            item.appendChild(remove);
+            attachmentList.appendChild(item);
+        });
+    }
+
+    async function readAttachment(file) {
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+        const data = String(dataUrl);
+        const base64 = data.includes(',') ? data.split(',')[1] : data;
+        let content = '';
+        if (!file.type.startsWith('image/')) {
+            try {
+                content = await file.text();
+            } catch (error) {
+                content = `[Nie można odczytać pliku ${file.name}]`;
+            }
+        }
+        return { name: file.name, type: file.type || 'application/octet-stream', data: base64, content };
     }
 
     function clearPanelEmpty(panel) {
@@ -580,29 +678,43 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─── Wysyłanie wiadomości ─────────────────────────────────────
     function sendMessage() {
         const msg = messageInput.value.trim();
-        if (!msg || !isConnected) return;
+        if ((!msg && !attachments.length) || !isConnected) return;
 
-        // Blokada komend systemowych
-        const blocked = ['system32', 'syswow64', 'rmdir /s /q', 'format', 'del /s /q', 'reg delete', 'shutdown'];
-        if (blocked.some(b => msg.toLowerCase().includes(b))) {
-            appendError('[SHIELD]: Wykryto zakazaną komendę systemową! Zablokowano.');
-            return;
-        }
-
-        appendUserMessage(msg);
+        const attachmentText = attachments
+            .filter(file => file.content)
+            .map(file => `\n\n--- Załącznik: ${file.name} ---\n${file.content}`)
+            .join('');
+        const displayText = (msg || 'Załączniki') + (attachments.length ? `\n📎 Dołączono: ${attachments.map(file => file.name).join(', ')}` : '');
+        appendUserMessage(displayText);
         messageInput.value = '';
         messageInput.style.height = 'auto';
         setWorking(true);
 
         ws.send(JSON.stringify({
             action: 'message',
-            message: msg,
+            message: msg + attachmentText,
             model: modelSelect.value,
+            attachments: attachments.map(({ name, type, data }) => ({ name, type, data })),
         }));
+        attachments = [];
+        renderAttachments();
     }
 
     // ─── Event Listeners ──────────────────────────────────────────
     sendBtn.addEventListener('click', sendMessage);
+
+    attachBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+        try {
+            const selected = await Promise.all(Array.from(fileInput.files).map(readAttachment));
+            attachments.push(...selected);
+            renderAttachments();
+        } catch (error) {
+            showToast('Nie udało się odczytać załącznika', 'error');
+        } finally {
+            fileInput.value = '';
+        }
+    });
 
     messageInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && e.ctrlKey) {
@@ -625,6 +737,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ws.send(JSON.stringify({ action: 'clear', role: roleSelect.value }));
             // Wyczyść panele
             chatOutput.innerHTML = '';
+            autoFollowChat = true;
             thoughtCounter = 0; fileCounter = 0;
             sessionStats = { tools: 0, files: 0, added: 0, removed: 0 };
             updateStats();

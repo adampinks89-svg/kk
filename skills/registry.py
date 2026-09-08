@@ -15,7 +15,14 @@ from skills.implementations.file_ops import (
     write_file_tool,
     rollback_file_tool,
 )
-from skills.implementations.cmd_ops import run_command_tool
+from skills.implementations.dev_ops import (
+    format_file_tool,
+    git_tool,
+    run_coverage_tool,
+    run_command_tool,
+    run_sandbox_tool,
+    run_tests_tool,
+)
 from core.logger import read_logs
 from core.linter import run_linter, format_lint_errors
 from core.ast_analyzer import get_ast_summary
@@ -49,6 +56,11 @@ SKILL_FUNCTIONS: Dict[str, Callable] = {
     "get_ast_context_tool": _get_ast_context_tool,
     "read_system_logs_tool": read_logs,
     "run_command_tool": run_command_tool,
+    "run_sandbox_tool": run_sandbox_tool,
+    "format_file_tool": format_file_tool,
+    "run_tests_tool": run_tests_tool,
+    "run_coverage_tool": run_coverage_tool,
+    "git_tool": git_tool,
 }
 
 
@@ -138,13 +150,15 @@ OLLAMA_TOOLS = [
         "function": {
             "name": "run_linter_tool",
             "description": (
-                "Uruchamia analizę statyczną pliku Python (ruff/flake8/py_compile). "
-                "Użyj po zapisaniu pliku lub gdy podejrzewasz błąd składniowy."
+                "Uruchamia analizę zależną od języka: Python (Ruff/mypy/Bandit), "
+                "JavaScript/TypeScript (ESLint), HTML (HTMLHint), CSS (Stylelint), "
+                "Go (gofmt), C/C++ (kompilator), C# (dotnet). "
+                "Użyj po zapisaniu pliku lub gdy podejrzewasz błąd."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "Ścieżka do pliku .py"}
+                    "path": {"type": "string", "description": "Ścieżka do pliku źródłowego"}
                 },
                 "required": ["path"],
             },
@@ -209,6 +223,92 @@ OLLAMA_TOOLS = [
                     }
                 },
                 "required": ["command"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_sandbox_tool",
+            "description": (
+                "Uruchamia kod lub polecenie w izolowanym kontenerze Docker. "
+                "Domyślnie sandbox nie ma dostępu do sieci; ustaw network=true tylko "
+                "gdy trzeba instalować zależności. Nigdy nie uruchamia kodu na hoście."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "Polecenie do wykonania"},
+                    "cwd": {"type": "string", "description": "Katalog workspace"},
+                    "image": {"type": "string", "description": "Obraz Docker, np. python:3.12-slim"},
+                    "network": {"type": "boolean", "description": "Czy włączyć sieć w kontenerze"},
+                    "timeout": {"type": "integer", "description": "Limit czasu w sekundach"},
+                },
+                "required": ["command"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "format_file_tool",
+            "description": "Automatycznie formatuje plik właściwym narzędziem dla jego języka.",
+            "parameters": {
+                "type": "object",
+                "properties": {"path": {"type": "string", "description": "Ścieżka pliku"}},
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_tests_tool",
+            "description": (
+                "Uruchamia testy jednostkowe lub integracyjne w sandboxie. "
+                "Bez command dobiera pytest, npm test, go test, dotnet test albo unittest."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "Runner testów, opcjonalnie"},
+                    "cwd": {"type": "string", "description": "Katalog projektu"},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_coverage_tool",
+            "description": "Uruchamia testy z pomiarem pokrycia kodu w sandboxie.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "Komenda testów, domyślnie pytest -q"},
+                    "cwd": {"type": "string", "description": "Katalog projektu"},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "git_tool",
+            "description": (
+                "Wykonuje kontrolowane operacje Git: status, diff, log, branch, "
+                "create_branch, checkout, add, commit, pull i push."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "description": "Nazwa operacji Git"},
+                    "cwd": {"type": "string", "description": "Katalog repozytorium"},
+                    "value": {"type": "string", "description": "Nazwa gałęzi, ścieżka lub treść commita"},
+                },
+                "required": ["action"],
             },
         },
     },

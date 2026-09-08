@@ -14,6 +14,7 @@ import os
 import json
 import ollama
 import httpx
+from urllib.parse import urlsplit
 from skills.registry import OLLAMA_TOOLS, execute_tool
 from core.logger import log_event, log_error
 from core.payload import (
@@ -27,7 +28,22 @@ from core.payload import (
 MAX_TOOL_ITERATIONS = 15   # Limit narzędzi w jednej sesji
 OSCILLATION_WINDOW = 3     # Okno detekcji oscylacji (ostatnie N wywołań)
 
-ollama_client = ollama.Client(timeout=None)
+
+def _normalize_ollama_host(value: str | None) -> str:
+    """Normalizuje adres klienta; adres nasłuchiwania 0.0.0.0 zastępuje loopbackiem."""
+    host_value = (value or "http://localhost:11434").strip()
+    if "://" not in host_value:
+        host_value = f"http://{host_value}"
+
+    parsed = urlsplit(host_value)
+    if parsed.hostname in {"0.0.0.0", "::", "::0"}:
+        return f"{parsed.scheme or 'http'}://127.0.0.1:{parsed.port or 11434}"
+    return host_value.rstrip("/")
+
+
+OLLAMA_HOST = _normalize_ollama_host(os.getenv("OLLAMA_HOST"))
+
+ollama_client = ollama.Client(host=OLLAMA_HOST, timeout=None)
 
 
 # ---------------------------------------------------------------------------
@@ -67,7 +83,7 @@ def check_ollama_status():
     if not is_connected or not models:
         try:
             with httpx.Client(timeout=3.0) as client:
-                response = client.get("http://localhost:11434/api/tags")
+                response = client.get(f"{OLLAMA_HOST}/api/tags")
                 if response.status_code == 200:
                     is_connected = True
                     data = response.json()
@@ -81,7 +97,7 @@ def check_ollama_status():
     if not is_connected:
         try:
             with httpx.Client(timeout=2.0) as client:
-                res = client.get("http://localhost:11434/")
+                res = client.get(f"{OLLAMA_HOST}/")
                 if res.status_code == 200:
                     is_connected = True
         except Exception:
@@ -139,6 +155,8 @@ def query_local_model_stream(
     stop_event=None,
     pending_approvals: dict | None = None,
     task_list: list | None = None,
+    _oscillation: OscillationDetector | None = None,
+    _tool_iteration: int = 0,
 ):
     """
     Strumieniuje odpowiedź z Ollama jako dict payloady JSON.
@@ -167,8 +185,8 @@ def query_local_model_stream(
         yield "[STREAM_EOF]"
         return
 
-    oscillation = OscillationDetector()
-    tool_iteration = 0
+    oscillation = _oscillation or OscillationDetector()
+    tool_iteration = _tool_iteration
 
     try:
         response = ollama_client.chat(
@@ -261,6 +279,7 @@ def query_local_model_stream(
         # Obsługa wywołań narzędzi
         # -----------------------------------------------------------------
         if tool_calls:
+            guard_triggered = False
             messages.append({
                 "role": "assistant",
                 "content": "",
@@ -277,6 +296,7 @@ def query_local_model_stream(
                 # --- Loop Guard: limit iteracji ---
                 tool_iteration += 1
                 if tool_iteration > MAX_TOOL_ITERATIONS:
+                    guard_triggered = True
                     payload = LoopGuardPayload(
                         reason=f"Przekroczono limit {MAX_TOOL_ITERATIONS} wywołań narzędzi w jednej sesji.",
                         iteration=tool_iteration,
@@ -287,6 +307,7 @@ def query_local_model_stream(
 
                 # --- Detektor oscylacji ---
                 if oscillation.record(func_name, args):
+                    guard_triggered = True
                     payload = LoopGuardPayload(
                         reason=(
                             f"Wykryto oscylację: narzędzie '{func_name}' wywoływane "
@@ -418,10 +439,16 @@ def query_local_model_stream(
                 })
 
             # Wygeneruj kolejną odpowiedź po wykonaniu narzędzi (pętla zamiast rekurencji)
-            if not (stop_event and stop_event.is_set()):
+            if not (stop_event and stop_event.is_set()) and not guard_triggered:
                 yield SystemPayload(f"📥 Zwrócono wynik narzędzi").to_dict()
                 yield from query_local_model_stream(
-                    messages, model_name, stop_event, pending_approvals, task_list
+                    messages,
+                    model_name,
+                    stop_event,
+                    pending_approvals,
+                    task_list,
+                    oscillation,
+                    tool_iteration,
                 )
                 return
 
