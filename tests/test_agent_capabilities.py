@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import agents.local_agent as local_agent
 import agents.google_adk_agent as google_adk_agent
+from core.security import APP_ROOT, is_visible_workspace_path
 from skills.registry import SKILL_FUNCTIONS, OLLAMA_TOOLS, execute_tool
 
 class TestAgentCapabilities(unittest.TestCase):
@@ -28,6 +29,11 @@ class TestAgentCapabilities(unittest.TestCase):
             local_agent._normalize_ollama_host("0.0.0.0:11434"),
             "http://127.0.0.1:11434",
         )
+
+    def test_application_files_are_hidden_from_agent_workspace(self):
+        self.assertFalse(is_visible_workspace_path(str(APP_ROOT)))
+        self.assertFalse(is_visible_workspace_path(str(APP_ROOT / "agents")))
+        self.assertTrue(is_visible_workspace_path(os.path.join(tempfile.gettempdir(), "Folder 4")))
 
     def test_tool_iteration_guard_persists_across_model_rounds(self):
         tool_call = {

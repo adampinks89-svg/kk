@@ -24,6 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const workspaceCurrentPath = document.getElementById('workspace-current-path');
     const workspaceDirectoryList = document.getElementById('workspace-directory-list');
     const workspaceUseBtn = document.getElementById('workspace-use-btn');
+    const filetree = document.getElementById('filetree');
+    const refreshFiletreeBtn = document.getElementById('refresh-filetree-btn');
     const clearCtxBtn       = document.getElementById('clear-ctx-btn');
     const showLogsBtn       = document.getElementById('show-logs-btn');
     const showSnapshotsBtn  = document.getElementById('show-snapshots-btn');
@@ -155,6 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 opt.textContent = workspace.name;
                 workspaceSelect.appendChild(opt);
             });
+            loadFiletree(workspaceSelect.value);
 
         } catch (e) {
             appendError(`❌ Błąd inicjalizacji: ${e.message}`);
@@ -787,7 +790,50 @@ document.addEventListener('DOMContentLoaded', () => {
             ws.send(JSON.stringify({ action: 'set_workspace', path: workspaceSelect.value }));
             showToast(`Folder agenta: ${workspaceSelect.options[workspaceSelect.selectedIndex].text}`, 'info');
         }
+        loadFiletree(workspaceSelect.value);
     });
+
+    function fileIcon(entry) {
+        if (entry.kind === 'directory') return '📁';
+        const icons = {
+            '.py': '🐍', '.js': '🟨', '.ts': '🔷', '.tsx': '⚛️', '.html': '🌐',
+            '.css': '🎨', '.json': '⚙️', '.md': '📝', '.go': '🔵', '.rs': '🦀',
+            '.java': '☕', '.sql': '🗃️', '.sh': '▣', '.bat': '▣',
+        };
+        return icons[entry.extension] || '📄';
+    }
+
+    async function loadFiletree(path) {
+        if (!filetree || !path) return;
+        filetree.innerHTML = '<p class="panel-empty">Ładowanie plików...</p>';
+        try {
+            const response = await fetch(`/api/filetree?path=${encodeURIComponent(path)}`);
+            const data = await response.json();
+            if (!response.ok || data.error) throw new Error(data.error || 'Nie udało się odczytać drzewa plików.');
+            filetree.innerHTML = '';
+            if (!data.entries.length) {
+                filetree.innerHTML = '<p class="panel-empty">Folder jest pusty.</p>';
+                return;
+            }
+            data.entries.forEach(entry => {
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = `filetree-entry ${entry.kind}`;
+                row.title = entry.path;
+                row.innerHTML = `<span class="filetree-icon">${fileIcon(entry)}</span><span class="filetree-name">${escapeHtml(entry.name)}</span>`;
+                if (entry.kind === 'directory') {
+                    row.addEventListener('click', () => loadFiletree(entry.path));
+                } else {
+                    row.disabled = true;
+                }
+                filetree.appendChild(row);
+            });
+        } catch (error) {
+            filetree.innerHTML = `<p class="panel-empty">${escapeHtml(error.message)}</p>`;
+        }
+    }
+
+    refreshFiletreeBtn.addEventListener('click', () => loadFiletree(workspaceSelect.value));
 
     async function loadWorkspaceDirectory(path) {
         workspaceDirectoryList.innerHTML = '<p class="panel-empty">Ładowanie katalogów...</p>';

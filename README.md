@@ -40,6 +40,21 @@ Tryb hosta daje agentowi dostęp do dowolnych istniejących plików i katalogów
 
 Polecenia `cd` i `Set-Location` są utrzymywane między wywołaniami: po każdej komendzie agent dostaje aktualny katalog roboczy. Przycisk 📁 pozwala również wskazać folder bezpośrednio w interfejsie.
 
+Domyślnie agent nie widzi plików tego projektu. Aby udostępnić jeden lub kilka zewnętrznych katalogów roboczych, ustaw `KK_WORKSPACE_ROOTS`, rozdzielając ścieżki separatorem systemowym. Przykłady:
+
+```bash
+KK_WORKSPACE_ROOTS=/home/user/Folder4:/home/user/AnotherProject python main.py
+```
+
+W PowerShell:
+
+```powershell
+$env:KK_WORKSPACE_ROOTS = "D:\Folder4;D:\AnotherProject"
+python main.py
+```
+
+Filetree w panelu bocznym pokazuje pliki wybranego workspace'u i dobiera ikonę na podstawie rozszerzenia. Katalogi projektu aplikacji są filtrowane również po stronie narzędzi agenta.
+
 ## Wybór folderu docelowego
 
 W panelu bocznym pole **Folder docelowy** wskazuje katalog roboczy agenta. Kliknij ikonę folderu, aby otworzyć przeglądarkę katalogów:
@@ -56,6 +71,7 @@ Agent używa wybranego katalogu dla poleceń, odczytu plików i modyfikacji. Dla
 - `GET /api/roles` - dostępne role agenta;
 - `GET /api/workspaces` - początkowa lista workspace'ów;
 - `GET /api/directories?path=...` - bieżący katalog i jego bezpośrednie podkatalogi;
+- `GET /api/filetree?path=...` - pliki i podkatalogi wybranego workspace'u;
 - `GET /api/logs` - logi systemowe;
 - `GET /api/snapshots` - dostępne migawki;
 - `POST /api/rollback` - przywracanie pliku z migawki;

@@ -22,7 +22,13 @@ from pydantic import BaseModel
 from agents.local_agent import check_ollama_status, query_local_model_stream
 from core.logger import read_logs
 from core.snapshot import list_snapshots, restore_snapshot
-from core.security import ALLOWED_WORKSPACES, unrestricted_workspace_enabled, validate_path
+from core.security import (
+    ALLOWED_WORKSPACES,
+    WORKSPACE_ROOTS_CONFIGURED,
+    is_visible_workspace_path,
+    unrestricted_workspace_enabled,
+    validate_path,
+)
 
 app = FastAPI(title="Multi-Agent AI Studio Backend")
 
@@ -87,13 +93,18 @@ async def get_roles():
 async def get_workspaces():
     """Zwraca katalogi, w których agent może wykonywać operacje."""
     workspaces = []
-    roots = [os.path.abspath(os.getcwd())] if unrestricted_workspace_enabled() else ALLOWED_WORKSPACES
+    roots = (
+        [os.path.abspath(os.getcwd())]
+        if unrestricted_workspace_enabled() and not WORKSPACE_ROOTS_CONFIGURED
+        else ALLOWED_WORKSPACES
+    )
     for root in roots:
         if not os.path.isdir(root):
             continue
-        workspaces.append({"path": root, "name": os.path.basename(root) or root})
+        if is_visible_workspace_path(root):
+            workspaces.append({"path": root, "name": os.path.basename(root) or root})
         for entry in sorted(os.scandir(root), key=lambda item: item.name.lower()):
-            if entry.is_dir() and not entry.name.startswith("."):
+            if entry.is_dir() and not entry.name.startswith(".") and is_visible_workspace_path(entry.path):
                 workspaces.append({"path": entry.path, "name": f"{os.path.basename(root)}/{entry.name}"})
     unique = {item["path"]: item for item in workspaces}
     return sorted(unique.values(), key=lambda item: item["path"])
@@ -103,22 +114,56 @@ async def get_workspaces():
 async def get_directories(path: str | None = None):
     """Zwraca bieżący katalog i jego bezpośrednie podkatalogi do wyboru."""
     requested_path = os.path.abspath(path or os.getcwd())
-    if not validate_path(requested_path) or not os.path.isdir(requested_path):
+    if (
+        not validate_path(requested_path)
+        or not is_visible_workspace_path(requested_path)
+        or not os.path.isdir(requested_path)
+    ):
         return {"error": "Katalog nie jest dostępny w dozwolonym workspace."}
 
     directories = []
     for entry in sorted(os.scandir(requested_path), key=lambda item: item.name.lower()):
-        if entry.is_dir() and not entry.name.startswith("."):
+        if entry.is_dir() and not entry.name.startswith(".") and is_visible_workspace_path(entry.path):
             directories.append({"path": entry.path, "name": entry.name})
 
     parent = os.path.dirname(requested_path)
-    parent_path = parent if validate_path(parent) and parent != requested_path else None
+    parent_path = (
+        parent
+        if validate_path(parent)
+        and is_visible_workspace_path(parent)
+        and parent != requested_path
+        else None
+    )
     return {
         "path": requested_path,
         "name": os.path.basename(requested_path) or requested_path,
         "parent": parent_path,
         "directories": directories,
     }
+
+
+@app.get("/api/filetree")
+async def get_filetree(path: str | None = None):
+    """Zwraca widoczne pliki i katalogi wybranego workspace."""
+    requested_path = os.path.abspath(path or os.getcwd())
+    if (
+        not validate_path(requested_path)
+        or not is_visible_workspace_path(requested_path)
+        or not os.path.isdir(requested_path)
+    ):
+        return {"error": "Katalog nie jest dostępny w dozwolonym workspace."}
+
+    entries = []
+    for entry in sorted(os.scandir(requested_path), key=lambda item: (not item.is_dir(), item.name.lower())):
+        if entry.name.startswith(".") or not is_visible_workspace_path(entry.path):
+            continue
+        entries.append({
+            "name": entry.name,
+            "path": entry.path,
+            "kind": "directory" if entry.is_dir() else "file",
+            "extension": os.path.splitext(entry.name)[1].lower(),
+        })
+    return {"path": requested_path, "entries": entries}
 
 
 @app.get("/api/logs")
@@ -231,7 +276,17 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     session_id = str(id(websocket))
     messages = []
-    working_directory = ALLOWED_WORKSPACES[0]
+    visible_workspace = next(
+        (
+            entry.path
+            for root in ALLOWED_WORKSPACES
+            if os.path.isdir(root)
+            for entry in os.scandir(root)
+            if entry.is_dir() and is_visible_workspace_path(entry.path)
+        ),
+        "",
+    )
+    working_directory = visible_workspace
     pending_approvals: Dict[str, Any] = {}
     pending_approvals_store[session_id] = pending_approvals
 
@@ -254,7 +309,11 @@ async def websocket_endpoint(websocket: WebSocket):
             # --- Ustawienie katalogu docelowego ---
             elif action == "set_workspace":
                 requested_directory = payload.get("path", "")
-                if validate_path(requested_directory) and os.path.isdir(requested_directory):
+                if (
+                    validate_path(requested_directory)
+                    and is_visible_workspace_path(requested_directory)
+                    and os.path.isdir(requested_directory)
+                ):
                     working_directory = os.path.abspath(requested_directory)
                     await websocket.send_json({
                         "type": "system",
@@ -281,6 +340,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 msg = payload.get("message")
                 model = payload.get("model")
                 attachments = payload.get("attachments") or []
+
+                if not working_directory:
+                    await websocket.send_json({
+                        "type": "error",
+                        "text": "Najpierw ustaw KK_WORKSPACE_ROOTS i wybierz folder docelowy.",
+                    })
+                    continue
 
                 user_message = {"role": "user", "content": msg or ""}
                 image_data = [

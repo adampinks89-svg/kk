@@ -17,6 +17,7 @@ import httpx
 from urllib.parse import urlsplit
 from skills.registry import OLLAMA_TOOLS, execute_tool
 from core.logger import log_event, log_error
+from core.security import is_visible_workspace_path
 from core.payload import (
     ThoughtPayload, FileEventPayload, MessagePayload,
     LoopGuardPayload, SystemPayload, ErrorPayload, TerminalEventPayload
@@ -39,6 +40,13 @@ def _normalize_ollama_host(value: str | None) -> str:
     if parsed.hostname in {"0.0.0.0", "::", "::0"}:
         return f"{parsed.scheme or 'http'}://127.0.0.1:{parsed.port or 11434}"
     return host_value.rstrip("/")
+
+
+def _resolve_tool_path(path: str, working_directory: str | None) -> str:
+    """Zakotwicza względne ścieżki narzędzi w aktualnym workspace agenta."""
+    if not working_directory or os.path.isabs(path):
+        return path
+    return os.path.abspath(os.path.join(working_directory, path))
 
 
 OLLAMA_HOST = _normalize_ollama_host(os.getenv("OLLAMA_HOST"))
@@ -293,6 +301,18 @@ def query_local_model_stream(
 
                 func_name = tc["function"]["name"]
                 args = tc["function"]["arguments"]
+                if working_directory and func_name in {
+                    "list_dir_tool", "read_file_tool", "write_file_tool",
+                    "run_linter_tool", "get_ast_context_tool", "format_file_tool",
+                } and isinstance(args.get("path"), str):
+                    args["path"] = _resolve_tool_path(args["path"], working_directory)
+                    if not is_visible_workspace_path(args["path"]):
+                        result_str = "Błąd: ścieżka należy do plików aplikacji i jest niedostępna dla agenta."
+                        messages.append({
+                            "role": "tool", "content": result_str, "name": func_name
+                        })
+                        yield ErrorPayload(result_str).to_dict()
+                        continue
                 if working_directory and func_name in {
                     "run_command_tool", "run_sandbox_tool", "run_tests_tool",
                     "run_coverage_tool", "git_tool",
