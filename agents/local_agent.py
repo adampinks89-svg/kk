@@ -30,6 +30,8 @@ from core.payload import (
 MAX_TOOL_ITERATIONS = 15   # Limit narzędzi w jednej sesji
 OSCILLATION_WINDOW = 3     # Okno detekcji oscylacji (ostatnie N wywołań)
 APPROVAL_TIMEOUT_SECONDS = 600
+MUTATING_GIT_ACTIONS = {"checkout", "pull", "add", "commit", "push"}
+MAX_CONSECUTIVE_TOOL_ERRORS = 3
 
 
 def _normalize_ollama_host(value: str | None) -> str:
@@ -168,6 +170,7 @@ def query_local_model_stream(
     _oscillation: OscillationDetector | None = None,
     _tool_iteration: int = 0,
     working_directory: str | None = None,
+    _tool_error_streak: int = 0,
 ):
     """
     Strumieniuje odpowiedź z Ollama jako dict payloady JSON.
@@ -198,6 +201,7 @@ def query_local_model_stream(
 
     oscillation = _oscillation or OscillationDetector()
     tool_iteration = _tool_iteration
+    tool_error_streak = _tool_error_streak
 
     try:
         response = ollama_client.chat(
@@ -373,11 +377,17 @@ def query_local_model_stream(
                         })
                         continue
 
-                # --- Human-in-the-Loop dla operacji zapisu ---
-                is_write_op = func_name == "write_file_tool"
+                # --- Human-in-the-Loop dla operacji modyfikujących ---
+                git_action = args.get("action") if func_name == "git_tool" else None
+                requires_approval = (
+                    func_name in {"write_file_tool", "format_file_tool"}
+                    or (func_name == "git_tool" and git_action in MUTATING_GIT_ACTIONS)
+                    or (func_name == "run_command_tool" and os.name == "nt")
+                    or (func_name == "run_sandbox_tool" and args.get("network") is True)
+                )
                 approval_id = None
 
-                if is_write_op and pending_approvals is not None:
+                if requires_approval and pending_approvals is not None:
                     import uuid
                     import threading
 
@@ -388,27 +398,38 @@ def query_local_model_stream(
                         "approved": None,
                     }
 
-                    # Wylicz diff przed zapisem (preview)
+                    operation = "write"
+                    if func_name == "format_file_tool":
+                        operation = "format"
+                    elif func_name == "git_tool":
+                        operation = f"git:{git_action}"
+                    elif func_name in {"run_command_tool", "run_sandbox_tool"}:
+                        operation = "execute"
+
+                    # Wylicz diff tylko dla zapisu pliku.
                     path = args.get("path", "")
                     new_content = args.get("content", "")
                     old_content = ""
-                    if os.path.isfile(path):
+                    if path and os.path.isfile(path):
                         try:
                             with open(path, "r", encoding="utf-8") as f:
                                 old_content = f.read()
                         except Exception:
                             pass
 
-                    from skills.implementations.file_ops import _compute_diff
-                    diff_data = _compute_diff(
-                        old_content, new_content, os.path.basename(path)
-                    )
+                    if path and func_name == "write_file_tool":
+                        from skills.implementations.file_ops import _compute_diff
+                        diff_data = _compute_diff(
+                            old_content, new_content, os.path.basename(path)
+                        )
+                    else:
+                        diff_data = {"added": 0, "removed": 0, "diff_lines": []}
 
                     # Emituj żądanie zatwierdzenia
                     from core.payload import ApprovalRequestPayload
                     yield ApprovalRequestPayload(
                         approval_id=approval_id,
-                        operation="write",
+                        operation=operation,
                         path=path,
                         diff_lines=diff_data["diff_lines"],
                         added=diff_data["added"],
@@ -444,13 +465,13 @@ def query_local_model_stream(
 
                     if decision.get("approved") is False:
                         yield SystemPayload(
-                            f"⛔ Operacja zapisu '{os.path.basename(path)}' odrzucona przez użytkownika."
+                            f"⛔ Operacja '{operation}' odrzucona przez użytkownika."
                         ).to_dict()
                         result_str = "Operacja odrzucona przez użytkownika."
                         messages.append({
                             "role": "tool", "content": result_str, "name": func_name
                         })
-                        log_event("HITL_REJECTED", f"Odrzucono zapis: {path}", "")
+                        log_event("HITL_REJECTED", f"Odrzucono operację {operation}: {path or git_action}", "")
                         continue
 
                     log_event("HITL_APPROVED", f"Zatwierdzono zapis: {path}", "")
@@ -463,6 +484,13 @@ def query_local_model_stream(
                         result_str = execute_tool(func_name, args)
                 except Exception as tool_err:
                     result_str = f"Błąd narzędzia: {str(tool_err)}"
+
+                try:
+                    result_data = json.loads(result_str)
+                    tool_failed = result_data.get("success") is False
+                except (json.JSONDecodeError, TypeError):
+                    tool_failed = result_str.startswith("Błąd")
+                tool_error_streak = tool_error_streak + 1 if tool_failed else 0
 
                 log_event("TOOL_CALL", f"Agent użył {func_name}", str(args))
                 log_event(
@@ -523,6 +551,18 @@ def query_local_model_stream(
                     "name": func_name,
                 })
 
+                if tool_error_streak >= MAX_CONSECUTIVE_TOOL_ERRORS:
+                    guard_triggered = True
+                    reason = (
+                        f"Narzędzia zwróciły {tool_error_streak} kolejne błędy. "
+                        "Zatrzymuję sesję, aby zapobiec dalszym nieudanym próbom. "
+                        "Przeanalizuj błędy i poproś użytkownika o doprecyzowanie."
+                    )
+                    yield LoopGuardPayload(reason, tool_iteration).to_dict()
+                    messages.append({"role": "tool", "content": reason, "name": func_name})
+                    log_event("TOOL_ERROR_GUARD", "Zatrzymano po serii błędów", str(tool_error_streak))
+                    break
+
             # Wygeneruj kolejną odpowiedź po wykonaniu narzędzi (pętla zamiast rekurencji)
             if not (stop_event and stop_event.is_set()) and not guard_triggered:
                 yield SystemPayload(f"📥 Zwrócono wynik narzędzi").to_dict()
@@ -535,6 +575,7 @@ def query_local_model_stream(
                     oscillation,
                     tool_iteration,
                     working_directory,
+                    tool_error_streak,
                 )
                 return
 

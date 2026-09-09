@@ -96,6 +96,21 @@ class TestAgentCapabilities(unittest.TestCase):
     def test_approval_timeout_is_not_logged_as_user_rejection(self):
         self.assertEqual(local_agent.APPROVAL_TIMEOUT_SECONDS, 600)
 
+    def test_tool_error_guard_stops_repeated_failures(self):
+        tool_names = ["list_dir_tool", "read_file_tool", "get_ast_context_tool"]
+        responses = [
+            [{"message": {"tool_calls": [{"function": {"name": name, "arguments": {"path": "."}}}]}}]
+            for name in tool_names
+        ]
+        with patch.object(local_agent.ollama_client, "chat", side_effect=responses) as chat, \
+                patch.object(local_agent, "execute_tool", return_value='{"success": false, "error": "test"}'):
+            payloads = list(local_agent.query_local_model_stream([], "test-model"))
+
+        guards = [payload for payload in payloads if isinstance(payload, dict) and payload.get("type") == "loop_guard"]
+        self.assertEqual(len(guards), 1)
+        self.assertIn("kolejne błędy", guards[0]["reason"])
+        self.assertEqual(chat.call_count, 3)
+
     def test_command_result_contains_directory_state(self):
         with tempfile.TemporaryDirectory() as workspace:
             with local_agent.workspace_context(workspace):
