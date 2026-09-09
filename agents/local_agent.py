@@ -421,6 +421,13 @@ def query_local_model_stream(
                     )
 
                     decision = pending_approvals.pop(approval_id, {})
+                    if decision.get("cancelled"):
+                        result_str = "Zatwierdzenie anulowane wraz z zatrzymaniem sesji."
+                        messages.append({
+                            "role": "tool", "content": result_str, "name": func_name
+                        })
+                        log_event("HITL_CANCELLED", f"Anulowano zapis: {path}", "")
+                        continue
                     if not approved_in_time and decision.get("approved") is None:
                         timeout_message = (
                             f"⏳ Zatwierdzenie zapisu '{os.path.basename(path)}' "

@@ -210,9 +210,22 @@ async def do_rollback(req: RollbackRequest):
 
 # stop_events: session_id → threading.Event
 stop_events: Dict[str, threading.Event] = {}
+# active_tasks: session_id → asyncio.Task generowania odpowiedzi
+active_tasks: Dict[str, asyncio.Task] = {}
 
 # pending_approvals: session_id → {approval_id → {"event": Event, "approved": bool|None}}
 pending_approvals_store: Dict[str, Dict[str, Any]] = {}
+
+
+def cancel_session(session_id: str) -> None:
+    """Przerywa sesję i odblokowuje oczekujące approvale bez fałszywego rejectu."""
+    stop_event = stop_events.get(session_id)
+    if stop_event:
+        stop_event.set()
+    approvals = pending_approvals_store.get(session_id, {})
+    for entry in approvals.values():
+        entry["cancelled"] = True
+        entry["event"].set()
 
 
 async def run_generator_in_thread(
@@ -337,6 +350,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 model = payload.get("model")
                 attachments = payload.get("attachments") or []
 
+                active_task = active_tasks.get(session_id)
+                if active_task and not active_task.done():
+                    await websocket.send_json({
+                        "type": "error",
+                        "text": "Agent już przetwarza zadanie. Poczekaj albo użyj przycisku Stop.",
+                    })
+                    continue
+
                 if not working_directory:
                     await websocket.send_json({
                         "type": "error",
@@ -356,17 +377,26 @@ async def websocket_endpoint(websocket: WebSocket):
                 stop_event = threading.Event()
                 stop_events[session_id] = stop_event
 
-                asyncio.create_task(
+                task = asyncio.create_task(
                     run_generator_in_thread(
                         websocket, messages, model, stop_event, pending_approvals,
                         working_directory,
                     )
                 )
+                active_tasks[session_id] = task
+
+                def clear_active_task(completed_task: asyncio.Task) -> None:
+                    if active_tasks.get(session_id) is completed_task:
+                        active_tasks.pop(session_id, None)
+
+                task.add_done_callback(clear_active_task)
 
             # --- Stop ---
             elif action == "stop":
-                if session_id in stop_events:
-                    stop_events[session_id].set()
+                cancel_session(session_id)
+                active_task = active_tasks.get(session_id)
+                if active_task and not active_task.done():
+                    active_task.cancel()
 
             # --- Human-in-the-Loop: zatwierdzenie ---
             elif action == "approve":
@@ -391,11 +421,10 @@ async def websocket_endpoint(websocket: WebSocket):
                     })
 
     except WebSocketDisconnect:
+        cancel_session(session_id)
         if session_id in stop_events:
-            stop_events[session_id].set()
             del stop_events[session_id]
+        active_task = active_tasks.pop(session_id, None)
+        if active_task and not active_task.done():
+            active_task.cancel()
         pending_approvals_store.pop(session_id, None)
-        # Odblokuj wszystkie oczekujące zatwierdzenia
-        for entry in pending_approvals.values():
-            entry["approved"] = False
-            entry["event"].set()

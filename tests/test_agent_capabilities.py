@@ -65,6 +65,23 @@ class TestAgentCapabilities(unittest.TestCase):
             self.assertIn("oryginalna", message)
             self.assertFalse(os.path.exists(alternate))
 
+    def test_backend_tracks_one_active_task_per_session(self):
+        from backend import server
+        self.assertEqual(server.active_tasks, {})
+
+    def test_backend_cancels_pending_approvals_without_rejection(self):
+        from backend import server
+        event = __import__("threading").Event()
+        server.pending_approvals_store["test-session"] = {
+            "approval": {"event": event, "approved": None}
+        }
+        server.cancel_session("test-session")
+        entry = server.pending_approvals_store["test-session"]["approval"]
+        self.assertTrue(entry["cancelled"])
+        self.assertTrue(event.is_set())
+        self.assertIsNone(entry["approved"])
+        server.pending_approvals_store.pop("test-session", None)
+
     def test_agent_has_a_non_application_default_workspace(self):
         default_path = default_workspace_path()
         self.assertTrue(default_path)
