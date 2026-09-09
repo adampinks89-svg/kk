@@ -29,6 +29,7 @@ from core.payload import (
 # ---------------------------------------------------------------------------
 MAX_TOOL_ITERATIONS = 15   # Limit narzędzi w jednej sesji
 OSCILLATION_WINDOW = 3     # Okno detekcji oscylacji (ostatnie N wywołań)
+APPROVAL_TIMEOUT_SECONDS = 600
 
 
 def _normalize_ollama_host(value: str | None) -> str:
@@ -414,11 +415,27 @@ def query_local_model_stream(
                         removed=diff_data["removed"],
                     ).to_dict()
 
-                    # Czekaj na decyzję użytkownika (max 120 sekund)
-                    approval_event.wait(timeout=120)
+                    # Czekaj na decyzję użytkownika; timeout nie jest odrzuceniem.
+                    approved_in_time = approval_event.wait(
+                        timeout=APPROVAL_TIMEOUT_SECONDS
+                    )
 
                     decision = pending_approvals.pop(approval_id, {})
-                    if not decision.get("approved", False):
+                    if not approved_in_time and decision.get("approved") is None:
+                        timeout_message = (
+                            f"⏳ Zatwierdzenie zapisu '{os.path.basename(path)}' "
+                            f"wygasło po {APPROVAL_TIMEOUT_SECONDS} sekundach. "
+                            "Nie zarejestrowano decyzji użytkownika."
+                        )
+                        yield SystemPayload(timeout_message).to_dict()
+                        result_str = "Zatwierdzenie wygasło bez decyzji użytkownika."
+                        messages.append({
+                            "role": "tool", "content": result_str, "name": func_name
+                        })
+                        log_event("HITL_TIMEOUT", f"Wygasł zapis: {path}", "")
+                        continue
+
+                    if decision.get("approved") is False:
                         yield SystemPayload(
                             f"⛔ Operacja zapisu '{os.path.basename(path)}' odrzucona przez użytkownika."
                         ).to_dict()

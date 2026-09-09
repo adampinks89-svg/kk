@@ -54,6 +54,9 @@ class TestAgentCapabilities(unittest.TestCase):
         self.assertFalse(sanitize_command('rm -rf ./project'))
         self.assertTrue(sanitize_command('Get-ChildItem -Force'))
 
+    def test_approval_timeout_is_not_logged_as_user_rejection(self):
+        self.assertEqual(local_agent.APPROVAL_TIMEOUT_SECONDS, 600)
+
     def test_command_result_contains_directory_state(self):
         with tempfile.TemporaryDirectory() as workspace:
             with local_agent.workspace_context(workspace):
