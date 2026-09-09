@@ -15,6 +15,7 @@ from core.security import (
     sanitize_command,
 )
 from skills.registry import SKILL_FUNCTIONS, OLLAMA_TOOLS, execute_tool
+from skills.implementations.dev_ops import run_command_tool
 
 class TestAgentCapabilities(unittest.TestCase):
     def test_registered_skills(self):
@@ -52,6 +53,13 @@ class TestAgentCapabilities(unittest.TestCase):
         self.assertFalse(sanitize_command('Get-ChildItem -Recurse | Remove-Item -Force -Recurse'))
         self.assertFalse(sanitize_command('rm -rf ./project'))
         self.assertTrue(sanitize_command('Get-ChildItem -Force'))
+
+    def test_command_result_contains_directory_state(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            with local_agent.workspace_context(workspace):
+                result = json.loads(run_command_tool("printf hello", cwd=workspace))
+            self.assertIn("directory_state", result)
+            self.assertEqual(result["directory_state"]["cwd"], os.path.abspath(workspace))
 
     def test_execute_tool_applies_target_dir_to_files_and_commands(self):
         with tempfile.TemporaryDirectory() as workspace:

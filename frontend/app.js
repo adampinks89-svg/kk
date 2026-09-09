@@ -44,6 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Statystyki
     const statTools         = document.getElementById('stat-tools');
+    const autonomyProgress = document.getElementById('autonomy-progress');
+    const autonomyProgressText = document.getElementById('autonomy-progress-text');
     const statFiles         = document.getElementById('stat-files');
     const statAdded         = document.getElementById('stat-added');
     const statRemoved       = document.getElementById('stat-removed');
@@ -221,6 +223,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             case 'loop_guard':
                 handleLoopGuard(data);
+                break;
+
+            case 'progress':
+                handleProgress(data);
                 break;
 
             case 'task_update':
@@ -531,6 +537,15 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollChatToBottom();
     }
 
+    function handleProgress(data) {
+        const maximum = Math.max(1, Number(data.maximum) || 15);
+        const iteration = Math.max(0, Number(data.iteration) || 0);
+        autonomyProgress.max = maximum;
+        autonomyProgress.value = Math.min(iteration, maximum);
+        autonomyProgressText.textContent = `Krok ${iteration} / ${maximum}`;
+        statTools.textContent = iteration;
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────
     function finalizeBlocks() {
         if (activeThoughtEl) activeThoughtEl = null;
@@ -547,13 +562,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function appendSystem(text) {
         clearPanelEmpty(chatOutput);
-        const el = document.createElement('div');
-        el.className = 'message-inline message-system animate-in';
+        const el = document.createElement('details');
+        el.className = 'message-inline message-system tool-log animate-in';
+        const summary = document.createElement('summary');
+        summary.textContent = text;
+        el.appendChild(summary);
+        const detail = document.createElement('div');
+        detail.className = 'tool-log-detail';
         if (typeof marked !== 'undefined') {
-            el.innerHTML = marked.parseInline(text);
+            detail.innerHTML = marked.parseInline(text);
         } else {
-            el.textContent = text;
+            detail.textContent = text;
         }
+        el.appendChild(detail);
         chatOutput.appendChild(el);
         scrollChatToBottom();
     }

@@ -20,6 +20,19 @@ def _result(success: bool, **data: Any) -> str:
     return json.dumps({"success": success, **data}, ensure_ascii=False)
 
 
+def _directory_state(path: str) -> dict:
+    """Zwraca krótki stan katalogu po wykonaniu polecenia."""
+    try:
+        entries = sorted(os.scandir(path), key=lambda entry: entry.name.lower())
+        return {
+            "cwd": os.path.abspath(path),
+            "dirs": [entry.name for entry in entries if entry.is_dir()][:200],
+            "files": [entry.name for entry in entries if entry.is_file()][:200],
+        }
+    except OSError as error:
+        return {"cwd": os.path.abspath(path), "error": str(error)}
+
+
 def _workspace(cwd: str) -> str | None:
     path = os.path.abspath(cwd or os.getcwd())
     return path if validate_path(path) and os.path.isdir(path) else None
@@ -45,7 +58,11 @@ def run_sandbox_tool(
     if not image or any(char in image for char in " ;|&\n\r"):
         return _result(False, error="Nieprawidłowa nazwa obrazu Docker.")
     if shutil.which("docker") is None:
-        return _result(False, error="Docker jest wymagany. Polecenie nie zostało uruchomione na hoście.")
+        return _result(
+            False,
+            error="Docker jest wymagany. Polecenie nie zostało uruchomione na hoście.",
+            directory_state=_directory_state(workspace),
+        )
 
     docker_command = [
         "docker", "run", "--rm", "--init",
@@ -71,6 +88,7 @@ def run_sandbox_tool(
             stderr=process.stderr,
             sandbox=True,
             network=network,
+            directory_state=_directory_state(workspace),
         )
     except subprocess.TimeoutExpired:
         return _result(False, error=f"Sandbox przekroczył limit czasu ({timeout}s).", sandbox=True)
@@ -110,6 +128,7 @@ def run_command_tool(command: str, cwd: str = ".") -> str:
                 stderr=process.stderr,
                 cwd=current_directory,
                 shell="powershell",
+                directory_state=_directory_state(current_directory),
             )
         except subprocess.TimeoutExpired:
             return _result(False, error="PowerShell przekroczył limit czasu (120s).", cwd=workspace)

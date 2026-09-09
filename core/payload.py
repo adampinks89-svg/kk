@@ -24,7 +24,7 @@ from typing import Literal, Optional, List
 EventType = Literal[
     "thought", "file_event", "message",
     "approval_request", "system", "error",
-    "done", "loop_guard", "task_update", "terminal_event"
+    "done", "loop_guard", "task_update", "terminal_event", "progress"
 ]
 
 FileOperation = Literal["read", "write", "create", "delete", "list"]
@@ -172,6 +172,23 @@ class LoopGuardPayload:
 
     def to_dict(self) -> dict:
         return {"type": self.type, "reason": self.reason, "iteration": self.iteration}
+
+
+@dataclass
+class ProgressPayload:
+    """Postęp pętli narzędzi agenta."""
+    iteration: int
+    maximum: int
+    tool: str
+    type: str = "progress"
+
+    def to_dict(self) -> dict:
+        return {
+            "type": self.type,
+            "iteration": self.iteration,
+            "maximum": self.maximum,
+            "tool": self.tool,
+        }
 
 
 @dataclass

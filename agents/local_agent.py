@@ -20,7 +20,8 @@ from core.logger import log_event, log_error
 from core.security import is_visible_workspace_path, workspace_context
 from core.payload import (
     ThoughtPayload, FileEventPayload, MessagePayload,
-    LoopGuardPayload, SystemPayload, ErrorPayload, TerminalEventPayload
+    LoopGuardPayload, SystemPayload, ErrorPayload, TerminalEventPayload,
+    ProgressPayload,
 )
 
 # ---------------------------------------------------------------------------
@@ -321,12 +322,22 @@ def query_local_model_stream(
 
                 # --- Loop Guard: limit iteracji ---
                 tool_iteration += 1
+                yield ProgressPayload(
+                    iteration=tool_iteration,
+                    maximum=MAX_TOOL_ITERATIONS,
+                    tool=func_name,
+                ).to_dict()
                 if tool_iteration > MAX_TOOL_ITERATIONS:
                     guard_triggered = True
+                    reason = (
+                        f"Przekroczono limit {MAX_TOOL_ITERATIONS} wywołań narzędzi. "
+                        "Zatrzymaj planowanie narzędzi i podsumuj wykonane kroki."
+                    )
                     payload = LoopGuardPayload(
-                        reason=f"Przekroczono limit {MAX_TOOL_ITERATIONS} wywołań narzędzi w jednej sesji.",
+                        reason=reason,
                         iteration=tool_iteration,
                     ).to_dict()
+                    messages.append({"role": "tool", "content": reason, "name": func_name})
                     yield payload
                     log_event("LOOP_GUARD", "Limit iteracji osiągnięty", str(tool_iteration))
                     break
@@ -334,13 +345,15 @@ def query_local_model_stream(
                 # --- Detektor oscylacji ---
                 if oscillation.record(func_name, args):
                     guard_triggered = True
+                    reason = (
+                        f"Wywołałeś {func_name} wielokrotnie bez zmian w systemie plików. "
+                        "Przejdź do kolejnego kroku planu i nie powtarzaj tego wywołania."
+                    )
                     payload = LoopGuardPayload(
-                        reason=(
-                            f"Wykryto oscylację: narzędzie '{func_name}' wywoływane "
-                            f"{OSCILLATION_WINDOW} razy z identycznymi argumentami."
-                        ),
+                        reason=reason,
                         iteration=tool_iteration,
                     ).to_dict()
+                    messages.append({"role": "tool", "content": reason, "name": func_name})
                     yield payload
                     log_event("OSCILLATION_DETECTED", f"Narzędzie: {func_name}", json.dumps(args))
                     break
