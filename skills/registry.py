@@ -6,6 +6,7 @@ Nowe narzędzia:
   - get_ast_context_tool  – mapa struktury kodu (klasy/funkcje)
   - rollback_file_tool    – przywrócenie pliku ze migawki
 """
+import contextlib
 import json
 import os
 from typing import Callable, Dict, Any
@@ -348,7 +349,8 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> str:
             if not os.path.isabs(path):
                 normalized_arguments["path"] = os.path.join(target_dir, path)
     try:
-        with workspace_context(target_dir):
+        context = workspace_context(target_dir) if target_dir else contextlib.nullcontext()
+        with context:
             result = func(**normalized_arguments)
         return str(result)
     except TypeError as e:

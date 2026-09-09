@@ -53,6 +53,18 @@ class TestAgentCapabilities(unittest.TestCase):
             self.assertEqual(file_path, os.path.join(workspace, "notes.txt"))
             self.assertEqual(command_path, os.path.abspath(workspace))
 
+    def test_execute_tool_preserves_active_workspace_context(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            file_path = os.path.join(workspace, "visible.txt")
+            with open(file_path, "w", encoding="utf-8") as file:
+                file.write("workspace")
+
+            with local_agent.workspace_context(workspace):
+                result = json.loads(execute_tool("read_file_tool", {"path": file_path}))
+
+            self.assertTrue(result["success"])
+            self.assertEqual(result["content"], "workspace")
+
     def test_directory_picker_exposes_roots_and_navigable_directories(self):
         roots = asyncio.run(get_directory_roots())
         self.assertTrue(roots["roots"])
