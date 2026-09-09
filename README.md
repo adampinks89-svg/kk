@@ -59,6 +59,8 @@ Korzenie systemu i katalogi systemowe nie mogą zostać ustawione jako workspace
 
 Filetree w panelu bocznym pokazuje pliki wybranego workspace'u i dobiera ikonę na podstawie rozszerzenia. Katalogi projektu aplikacji są filtrowane również po stronie narzędzi agenta.
 
+Output narzędzi jest ograniczony domyślnie do 20 000 znaków, a komendy mają limit 120 sekund. Limity można zmienić lokalnie przez `KK_MAX_TOOL_OUTPUT_CHARS` i `KK_COMMAND_TIMEOUT_SECONDS` (maksymalnie 600 sekund dla komendy).
+
 ## Wybór folderu docelowego
 
 W panelu bocznym pole **Folder docelowy** wskazuje katalog roboczy agenta. Kliknij ikonę folderu, aby otworzyć przeglądarkę katalogów:

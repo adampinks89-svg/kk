@@ -15,9 +15,24 @@ from typing import Any
 
 from core.security import sanitize_command, unrestricted_workspace_enabled, validate_path
 
+MAX_TOOL_OUTPUT_CHARS = max(1000, int(os.getenv("KK_MAX_TOOL_OUTPUT_CHARS", "20000")))
+COMMAND_TIMEOUT_SECONDS = min(
+    600,
+    max(1, int(os.getenv("KK_COMMAND_TIMEOUT_SECONDS", "120"))),
+)
+
 
 def _result(success: bool, **data: Any) -> str:
-    return json.dumps({"success": success, **data}, ensure_ascii=False)
+    result = {"success": success, **data}
+    truncated = False
+    for key in ("stdout", "stderr", "output"):
+        value = result.get(key)
+        if isinstance(value, str) and len(value) > MAX_TOOL_OUTPUT_CHARS:
+            result[key] = value[:MAX_TOOL_OUTPUT_CHARS] + "\n[output truncated]"
+            truncated = True
+    if truncated:
+        result["output_truncated"] = True
+    return json.dumps(result, ensure_ascii=False)
 
 
 def _directory_state(path: str) -> dict:
@@ -79,7 +94,7 @@ def run_sandbox_tool(
             docker_command,
             capture_output=True,
             text=True,
-            timeout=max(1, min(timeout, 600)),
+            timeout=min(COMMAND_TIMEOUT_SECONDS, max(1, min(timeout, 600))),
         )
         return _result(
             process.returncode == 0,
@@ -115,7 +130,7 @@ def run_command_tool(command: str, cwd: str = ".") -> str:
                 cwd=workspace,
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=COMMAND_TIMEOUT_SECONDS,
                 encoding="utf-8",
                 errors="replace",
             )
@@ -131,13 +146,17 @@ def run_command_tool(command: str, cwd: str = ".") -> str:
                 directory_state=_directory_state(current_directory),
             )
         except subprocess.TimeoutExpired:
-            return _result(False, error="PowerShell przekroczył limit czasu (120s).", cwd=workspace)
+            return _result(
+                False,
+                error=f"PowerShell przekroczył limit czasu ({COMMAND_TIMEOUT_SECONDS}s).",
+                cwd=workspace,
+            )
         except Exception as error:
             return _result(False, error=f"Błąd uruchamiania PowerShell: {error}", cwd=workspace)
     return run_sandbox_tool(command, cwd=cwd)
 
 
-def _run_local(args: list[str], cwd: str, timeout: int = 120) -> str:
+def _run_local(args: list[str], cwd: str, timeout: int = COMMAND_TIMEOUT_SECONDS) -> str:
     try:
         process = subprocess.run(args, cwd=cwd, capture_output=True, text=True, timeout=timeout)
         return _result(

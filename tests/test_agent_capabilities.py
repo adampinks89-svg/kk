@@ -17,7 +17,7 @@ from core.security import (
 )
 from core import snapshot
 from skills.registry import SKILL_FUNCTIONS, OLLAMA_TOOLS, execute_tool
-from skills.implementations.dev_ops import run_command_tool
+from skills.implementations.dev_ops import MAX_TOOL_OUTPUT_CHARS, _result, run_command_tool
 
 class TestAgentCapabilities(unittest.TestCase):
     def test_registered_skills(self):
@@ -102,6 +102,11 @@ class TestAgentCapabilities(unittest.TestCase):
                 result = json.loads(run_command_tool("printf hello", cwd=workspace))
             self.assertIn("directory_state", result)
             self.assertEqual(result["directory_state"]["cwd"], os.path.abspath(workspace))
+
+    def test_tool_output_is_bounded_and_marked(self):
+        result = json.loads(_result(True, stdout="x" * (MAX_TOOL_OUTPUT_CHARS + 10)))
+        self.assertTrue(result["output_truncated"])
+        self.assertLessEqual(len(result["stdout"]), MAX_TOOL_OUTPUT_CHARS + 20)
 
     def test_execute_tool_applies_target_dir_to_files_and_commands(self):
         with tempfile.TemporaryDirectory() as workspace:
