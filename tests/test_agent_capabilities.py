@@ -1,6 +1,7 @@
 import os
 import unittest
 import json
+import tempfile
 from unittest.mock import patch
 
 import agents.local_agent as local_agent
@@ -49,6 +50,56 @@ class TestAgentCapabilities(unittest.TestCase):
         self.assertEqual(len(guards), 1)
         self.assertEqual(guards[0]["iteration"], 3)
         self.assertEqual(chat.call_count, 3)
+
+    def test_agent_writes_before_and_after_switching_workspace(self):
+        """Agent może zapisać pliki kolejno w workspace i po zmianie cwd."""
+        with tempfile.TemporaryDirectory() as workspace, tempfile.TemporaryDirectory() as drive_d:
+            responses = [
+                [{"message": {"tool_calls": [{
+                    "function": {
+                        "name": "write_file_tool",
+                        "arguments": {"path": "hello.txt", "content": "hello Fervv"},
+                    }
+                }]}}],
+                [{"message": {"tool_calls": [{
+                    "function": {
+                        "name": "run_command_tool",
+                        "arguments": {"command": "cd D:/"},
+                    }
+                }]}}],
+                [{"message": {"tool_calls": [{
+                    "function": {
+                        "name": "write_file_tool",
+                        "arguments": {"path": "hello2.txt", "content": "hello Fervv 2"},
+                    }
+                }]}}],
+                [{"message": {"content": "Gotowe"}}],
+            ]
+
+            def execute_tool_side_effect(name, args):
+                if name == "write_file_tool":
+                    path = args["path"]
+                    with open(path, "w", encoding="utf-8") as file:
+                        file.write(args["content"])
+                    return json.dumps({"success": True, "path": path})
+                if name == "run_command_tool":
+                    return json.dumps({
+                        "success": True,
+                        "returncode": 0,
+                        "stdout": "",
+                        "stderr": "",
+                        "cwd": drive_d,
+                    })
+                raise AssertionError(f"Nieoczekiwane narzędzie: {name}")
+
+            with patch.object(local_agent.ollama_client, "chat", side_effect=responses), \
+                    patch.object(local_agent, "execute_tool", side_effect=execute_tool_side_effect):
+                list(local_agent.query_local_model_stream([], "test-model", working_directory=workspace))
+
+            with open(os.path.join(workspace, "hello.txt"), encoding="utf-8") as file:
+                self.assertEqual(file.read(), "hello Fervv")
+            with open(os.path.join(drive_d, "hello2.txt"), encoding="utf-8") as file:
+                self.assertEqual(file.read(), "hello Fervv 2")
 
 if __name__ == "__main__":
     unittest.main()

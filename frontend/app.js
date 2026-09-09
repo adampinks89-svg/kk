@@ -22,8 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const workspaceCloseBtn = document.getElementById('workspace-close-btn');
     const workspaceParentBtn = document.getElementById('workspace-parent-btn');
     const workspaceCurrentPath = document.getElementById('workspace-current-path');
-    const workspacePathInput = document.getElementById('workspace-path-input');
-    const workspaceGoBtn = document.getElementById('workspace-go-btn');
     const workspaceDirectoryList = document.getElementById('workspace-directory-list');
     const workspaceUseBtn = document.getElementById('workspace-use-btn');
     const clearCtxBtn       = document.getElementById('clear-ctx-btn');
@@ -800,7 +798,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok || data.error) throw new Error(data.error || 'Nie udało się odczytać katalogu.');
 
             browsedWorkspacePath = data.path;
-            workspacePathInput.value = data.path;
             workspaceCurrentPath.textContent = data.path;
             workspaceCurrentPath.dataset.parent = data.parent || '';
             workspaceParentBtn.disabled = !data.parent;
@@ -835,16 +832,6 @@ document.addEventListener('DOMContentLoaded', () => {
     workspaceCloseBtn.addEventListener('click', closeWorkspaceModal);
     workspaceParentBtn.addEventListener('click', () => {
         if (!workspaceParentBtn.disabled) loadWorkspaceDirectory(workspaceCurrentPath.dataset.parent || '');
-    });
-    workspaceGoBtn.addEventListener('click', () => {
-        const path = workspacePathInput.value.trim();
-        if (path) loadWorkspaceDirectory(path);
-    });
-    workspacePathInput.addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            workspaceGoBtn.click();
-        }
     });
     workspaceUseBtn.addEventListener('click', () => {
         const option = Array.from(workspaceSelect.options).find(item => item.value === browsedWorkspacePath);
