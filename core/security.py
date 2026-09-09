@@ -10,9 +10,20 @@ APP_INTERNAL_NAMES = {
     "pytest.ini", "README.md", "requirements.txt", "run_studio.bat",
     "start_studio.ps1",
 }
-DEFAULT_WORKSPACES = [str(APP_ROOT)]
 configured_roots = os.getenv("KK_WORKSPACE_ROOTS", "")
 WORKSPACE_ROOTS_CONFIGURED = bool(configured_roots.strip())
+if WORKSPACE_ROOTS_CONFIGURED:
+    DEFAULT_WORKSPACES = [
+        os.path.abspath(root.strip())
+        for root in configured_roots.split(os.pathsep)
+        if root.strip()
+    ]
+else:
+    home_directory = Path.home()
+    downloads_directory = home_directory / "Downloads"
+    DEFAULT_WORKSPACES = [str(
+        downloads_directory if downloads_directory.is_dir() else home_directory
+    )]
 ALLOWED_WORKSPACES = [
     os.path.abspath(root.strip())
     for root in configured_roots.split(os.pathsep)
@@ -35,6 +46,14 @@ def workspace_context(workspace: str | None):
 def unrestricted_workspace_enabled() -> bool:
     """Zwraca, czy uruchomienie jawnie włączyło dostęp do całego hosta."""
     return os.getenv("KK_WINDOWS_HOST", "0").lower() in {"1", "true", "yes"}
+
+
+def default_workspace_path() -> str:
+    """Zwraca katalog startowy agenta, domyślnie Downloads użytkownika."""
+    for workspace in ALLOWED_WORKSPACES:
+        if os.path.isdir(workspace) and is_visible_workspace_path(workspace):
+            return os.path.abspath(workspace)
+    return ""
 
 def validate_path(target_path: str) -> bool:
     """Sprawdza, czy ścieżka znajduje się w dozwolonych obszarach roboczych (sandboxach)."""

@@ -24,6 +24,7 @@ from core.logger import read_logs
 from core.snapshot import list_snapshots, restore_snapshot
 from core.security import (
     ALLOWED_WORKSPACES,
+    default_workspace_path,
     filesystem_roots,
     is_browsable_directory,
     WORKSPACE_ROOTS_CONFIGURED,
@@ -284,17 +285,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     session_id = str(id(websocket))
     messages = []
-    visible_workspace = next(
-        (
-            entry.path
-            for root in ALLOWED_WORKSPACES
-            if os.path.isdir(root)
-            for entry in os.scandir(root)
-            if entry.is_dir() and is_visible_workspace_path(entry.path)
-        ),
-        "",
-    )
-    working_directory = visible_workspace
+    working_directory = default_workspace_path()
     pending_approvals: Dict[str, Any] = {}
     pending_approvals_store[session_id] = pending_approvals
 
