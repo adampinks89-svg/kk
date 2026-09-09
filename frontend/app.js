@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sendBtn           = document.getElementById('send-btn');
     const stopBtn           = document.getElementById('stop-btn');
     const agentWorking      = document.getElementById('agent-working');
+    const agentStatusText   = document.getElementById('agent-status-text');
 
     const ollamaStatus      = document.getElementById('ollama-status');
     const ollamaDot         = ollamaStatus.querySelector('.status-dot');
@@ -192,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isConnected = false;
             appendError('❌ Rozłączono z serwerem. Odśwież stronę.');
             setWorking(false);
+            setAgentStatus('Rozłączony', 'status-disconnected');
         };
 
         ws.onerror = (err) => {
@@ -453,6 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─── Human-in-the-Loop ────────────────────────────────────────
     function handleApprovalRequest(data) {
         currentApprovalId = data.approval_id;
+        setAgentStatus('Czeka na zatwierdzenie', 'status-waiting');
         approvalOperation.textContent = data.operation;
         approvalPath.textContent = data.path;
         approvalAdded.textContent = `+${data.added}`;
@@ -518,6 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }));
         currentApprovalId = null;
         approvalModal.classList.remove('active');
+        setAgentStatus('Pracuje', 'status-working');
         showToast(approved ? '✅ Operacja zatwierdzona' : '⛔ Operacja odrzucona', approved ? 'success' : 'error');
     }
 
@@ -682,15 +686,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function setWorking(active) {
         if (active) {
             agentWorking.classList.remove('hidden');
+            setAgentStatus('Pracuje', 'status-working');
             sendBtn.disabled = true;
             stopBtn.disabled = false;
             sessionStats.tools++;
             updateStats();
         } else {
-            agentWorking.classList.add('hidden');
+            setAgentStatus('Gotowy', 'status-ready');
             sendBtn.disabled = false;
             stopBtn.disabled = true;
         }
+    }
+
+    function setAgentStatus(text, statusClass) {
+        agentWorking.classList.remove('status-ready', 'status-working', 'status-waiting', 'status-disconnected');
+        agentWorking.classList.add(statusClass);
+        agentStatusText.textContent = text;
     }
 
     function updateStats() {

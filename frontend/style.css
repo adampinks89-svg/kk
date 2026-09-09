@@ -118,6 +118,27 @@ body {
 .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
 .dot-red   { background: var(--red);   box-shadow: 0 0 6px var(--red); }
 
+.working-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+.working-indicator {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+.status-ready { color: var(--green); background: rgba(155, 212, 176, 0.1); border-color: rgba(155, 212, 176, 0.25); }
+.status-working { color: var(--accent); background: rgba(139, 211, 230, 0.1); border-color: rgba(139, 211, 230, 0.25); }
+.status-waiting { color: var(--yellow); background: rgba(232, 201, 130, 0.12); border-color: rgba(232, 201, 130, 0.3); }
+.status-disconnected { color: var(--red); background: rgba(239, 154, 154, 0.1); border-color: rgba(239, 154, 154, 0.25); }
+
 /* Kontrolki */
 .control-group {
     display: flex;
