@@ -43,6 +43,8 @@ def _run_linter_tool(path: str) -> str:
 
 def _get_ast_context_tool(path: str) -> str:
     """Adapter: zwraca skróconą mapę AST pliku Python."""
+    if not os.path.isfile(path):
+        return json.dumps({"error": f"AST wymaga istniejącego pliku .py: {path}"})
     return get_ast_summary(path)
 
 

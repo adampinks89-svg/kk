@@ -1,6 +1,7 @@
 import os
 import contextlib
 import contextvars
+import re
 from pathlib import Path
 
 APP_ROOT = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))).resolve()
@@ -29,7 +30,10 @@ ALLOWED_WORKSPACES = [
     for root in configured_roots.split(os.pathsep)
     if root.strip()
 ] or DEFAULT_WORKSPACES
-BLOCKED_COMMANDS = ["system32", "syswow64", "rmdir /s /q", "format", "del /s /q", "reg delete", "shutdown"]
+BLOCKED_COMMANDS = [
+    "system32", "syswow64", "rmdir /s /q", "format", "del /s /q",
+    "reg delete", "shutdown", "remove-item", "clear-content",
+]
 _active_workspace = contextvars.ContextVar("active_workspace", default=None)
 
 
@@ -105,4 +109,6 @@ def is_visible_workspace_path(target_path: str) -> bool:
 
 def sanitize_command(command: str) -> bool:
     cmd_lower = command.lower()
-    return not any(blocked in cmd_lower for blocked in BLOCKED_COMMANDS)
+    if any(blocked in cmd_lower for blocked in BLOCKED_COMMANDS):
+        return False
+    return not re.search(r"(?:^|[;&|])\s*(?:rm|rmdir|del|erase)\b", cmd_lower)

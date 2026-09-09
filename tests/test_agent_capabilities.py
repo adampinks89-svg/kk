@@ -8,7 +8,12 @@ from unittest.mock import patch
 import agents.local_agent as local_agent
 import agents.google_adk_agent as google_adk_agent
 from backend.server import get_directories, get_directory_roots
-from core.security import APP_ROOT, default_workspace_path, is_visible_workspace_path
+from core.security import (
+    APP_ROOT,
+    default_workspace_path,
+    is_visible_workspace_path,
+    sanitize_command,
+)
 from skills.registry import SKILL_FUNCTIONS, OLLAMA_TOOLS, execute_tool
 
 class TestAgentCapabilities(unittest.TestCase):
@@ -42,6 +47,11 @@ class TestAgentCapabilities(unittest.TestCase):
         self.assertTrue(default_path)
         self.assertNotEqual(os.path.realpath(default_path), os.path.realpath(APP_ROOT))
         self.assertTrue(os.path.isdir(default_path))
+
+    def test_destructive_shell_commands_are_blocked(self):
+        self.assertFalse(sanitize_command('Get-ChildItem -Recurse | Remove-Item -Force -Recurse'))
+        self.assertFalse(sanitize_command('rm -rf ./project'))
+        self.assertTrue(sanitize_command('Get-ChildItem -Force'))
 
     def test_execute_tool_applies_target_dir_to_files_and_commands(self):
         with tempfile.TemporaryDirectory() as workspace:
