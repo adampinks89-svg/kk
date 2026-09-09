@@ -74,6 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─── Stan aplikacji ───────────────────────────────────────────
     let ws = null;
     let isConnected = false;
+    let reconnectAttempts = 0;
+    let reconnectTimer = null;
     let currentApprovalId = null;
     let sessionStats = { tools: 0, files: 0, added: 0, removed: 0 };
     let thoughtCounter = 0;
@@ -171,11 +173,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ─── WebSocket ────────────────────────────────────────────────
     function connectWebSocket() {
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         ws = new WebSocket(`${protocol}//${window.location.host}/ws/chat`);
 
         ws.onopen = () => {
             isConnected = true;
+            reconnectAttempts = 0;
             appendSystem('🔌 Połączono z serwerem.');
             setTimeout(() => {
                 ws.send(JSON.stringify({ action: 'set_role', role: roleSelect.value }));
@@ -194,11 +201,23 @@ document.addEventListener('DOMContentLoaded', () => {
             appendError('❌ Rozłączono z serwerem. Odśwież stronę.');
             setWorking(false);
             setAgentStatus('Rozłączony', 'status-disconnected');
+            scheduleReconnect();
         };
 
         ws.onerror = (err) => {
             appendError('❌ Błąd WebSocket.');
         };
+    }
+
+    function scheduleReconnect() {
+        if (reconnectTimer) return;
+        reconnectAttempts += 1;
+        const delay = Math.min(30000, 1000 * (2 ** Math.min(reconnectAttempts - 1, 5)));
+        reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            showToast(`Ponawiam połączenie (${reconnectAttempts})...`, 'info');
+            connectWebSocket();
+        }, delay);
     }
 
     // ─── Obsługa payloadów ────────────────────────────────────────
@@ -1025,6 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     const result = await res.json();
                     showToast(result.message, result.success ? 'success' : 'error');
+                    if (result.success) loadFiletree(workspaceSelect.value);
                     snapshotsModal.classList.remove('active');
                 } catch (e) {
                     showToast('Błąd rollbacku', 'error');
