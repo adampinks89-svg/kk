@@ -2,6 +2,7 @@ import os
 import contextlib
 import contextvars
 import re
+import sys
 from pathlib import Path
 
 APP_ROOT = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))).resolve()
@@ -67,10 +68,12 @@ def validate_path(target_path: str) -> bool:
         if unrestricted_workspace_enabled():
             return abs_target.exists()
         active_workspace = _active_workspace.get()
-        if active_workspace and os.path.commonpath((str(abs_target), active_workspace)) == active_workspace:
+        active_root = Path(active_workspace).resolve() if active_workspace else None
+        if active_root and os.path.commonpath((str(abs_target), str(active_root))) == str(active_root):
             return True
         return any(
-            os.path.commonpath((str(abs_target), workspace)) == workspace
+            os.path.commonpath((str(abs_target), str(Path(workspace).resolve())))
+            == str(Path(workspace).resolve())
             for workspace in ALLOWED_WORKSPACES
         )
     except Exception:
@@ -82,6 +85,28 @@ def is_browsable_directory(target_path: str) -> bool:
     try:
         resolved = Path(target_path).resolve()
         return resolved.is_dir() and is_visible_workspace_path(str(resolved))
+    except (OSError, ValueError):
+        return False
+
+
+def is_safe_workspace_root(target_path: str) -> bool:
+    """Sprawdza, czy katalog może zostać aktywnym workspace'em agenta."""
+    try:
+        resolved = Path(target_path).resolve()
+        if not resolved.is_dir() or not is_visible_workspace_path(str(resolved)):
+            return False
+        if resolved.parent == resolved:
+            return False
+        if sys.platform == "win32":
+            blocked_names = {"windows", "program files", "program files (x86)", "programdata"}
+            return resolved.name.lower() not in blocked_names
+        blocked_roots = {
+            Path("/bin"), Path("/boot"), Path("/dev"), Path("/etc"),
+            Path("/lib"), Path("/lib64"), Path("/proc"), Path("/root"),
+            Path("/run"), Path("/sbin"), Path("/sys"), Path("/usr"),
+            Path("/var"),
+        }
+        return resolved not in blocked_roots
     except (OSError, ValueError):
         return False
 

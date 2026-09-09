@@ -12,6 +12,7 @@ API:
 import os
 import shutil
 import json
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -52,7 +53,7 @@ def create_snapshot(path: str) -> str | None:
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     basename = os.path.basename(path)
-    snapshot_id = f"{timestamp}_{basename}"
+    snapshot_id = f"{timestamp}_{uuid.uuid4().hex[:8]}_{basename}"
     snapshot_path = os.path.join(SNAPSHOTS_DIR, snapshot_id + ".bak")
 
     try:
@@ -104,6 +105,8 @@ def restore_snapshot(snapshot_id: str, target_path: str | None = None) -> tuple[
         return False, f"Plik migawki nie istnieje: {snapshot_path}"
 
     restore_to = target_path or entry["original_path"]
+    if os.path.realpath(restore_to) != os.path.realpath(entry["original_path"]):
+        return False, "Rollback do innej ścieżki niż oryginalna jest zablokowany."
 
     try:
         os.makedirs(os.path.dirname(os.path.abspath(restore_to)), exist_ok=True)

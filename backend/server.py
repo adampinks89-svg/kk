@@ -27,6 +27,7 @@ from core.security import (
     default_workspace_path,
     filesystem_roots,
     is_browsable_directory,
+    is_safe_workspace_root,
     WORKSPACE_ROOTS_CONFIGURED,
     is_visible_workspace_path,
     unrestricted_workspace_enabled,
@@ -308,7 +309,7 @@ async def websocket_endpoint(websocket: WebSocket):
             # --- Ustawienie katalogu docelowego ---
             elif action == "set_workspace":
                 requested_directory = payload.get("target_dir") or payload.get("path", "")
-                if is_browsable_directory(requested_directory):
+                if is_safe_workspace_root(requested_directory):
                     working_directory = os.path.abspath(requested_directory)
                     await websocket.send_json({
                         "type": "system",

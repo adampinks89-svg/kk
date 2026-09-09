@@ -55,6 +55,8 @@ python main.py
 
 Bez `KK_WORKSPACE_ROOTS` agent startuje w `Downloads` bieżącego użytkownika. Jeśli ten katalog nie istnieje, używany jest katalog domowy użytkownika. Przycisk 📁 pozwala następnie zmienić `target_dir` bez restartu aplikacji.
 
+Korzenie systemu i katalogi systemowe nie mogą zostać ustawione jako workspace agenta. Rollback przywraca snapshot wyłącznie do oryginalnej ścieżki pliku.
+
 Filetree w panelu bocznym pokazuje pliki wybranego workspace'u i dobiera ikonę na podstawie rozszerzenia. Katalogi projektu aplikacji są filtrowane również po stronie narzędzi agenta.
 
 ## Wybór folderu docelowego

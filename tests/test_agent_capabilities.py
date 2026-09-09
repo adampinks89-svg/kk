@@ -11,9 +11,11 @@ from backend.server import get_directories, get_directory_roots
 from core.security import (
     APP_ROOT,
     default_workspace_path,
+    is_safe_workspace_root,
     is_visible_workspace_path,
     sanitize_command,
 )
+from core import snapshot
 from skills.registry import SKILL_FUNCTIONS, OLLAMA_TOOLS, execute_tool
 from skills.implementations.dev_ops import run_command_tool
 
@@ -42,6 +44,26 @@ class TestAgentCapabilities(unittest.TestCase):
         self.assertFalse(is_visible_workspace_path(str(APP_ROOT)))
         self.assertFalse(is_visible_workspace_path(str(APP_ROOT / "agents")))
         self.assertTrue(is_visible_workspace_path(os.path.join(tempfile.gettempdir(), "Folder 4")))
+
+    def test_system_roots_cannot_become_agent_workspace(self):
+        self.assertFalse(is_safe_workspace_root(os.path.abspath(os.sep)))
+        self.assertTrue(is_safe_workspace_root(tempfile.gettempdir()))
+
+    def test_rollback_cannot_write_to_another_path(self):
+        with tempfile.TemporaryDirectory() as workspace, tempfile.TemporaryDirectory() as snapshot_dir:
+            original = os.path.join(workspace, "note.txt")
+            alternate = os.path.join(snapshot_dir, "restored.txt")
+            with open(original, "w", encoding="utf-8") as file:
+                file.write("before")
+
+            with patch.object(snapshot, "SNAPSHOTS_DIR", snapshot_dir), \
+                    patch.object(snapshot, "SNAPSHOTS_INDEX", os.path.join(snapshot_dir, "index.json")):
+                snapshot_id = snapshot.create_snapshot(original)
+                success, message = snapshot.restore_snapshot(snapshot_id, alternate)
+
+            self.assertFalse(success)
+            self.assertIn("oryginalna", message)
+            self.assertFalse(os.path.exists(alternate))
 
     def test_agent_has_a_non_application_default_workspace(self):
         default_path = default_workspace_path()
