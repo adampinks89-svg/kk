@@ -7,6 +7,7 @@ Nowe narzędzia:
   - rollback_file_tool    – przywrócenie pliku ze migawki
 """
 import json
+import os
 from typing import Callable, Dict, Any
 
 from skills.implementations.file_ops import (
@@ -321,7 +322,7 @@ OLLAMA_TOOLS = [
 # ---------------------------------------------------------------------------
 
 def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> str:
-    """Wykonuje wskazane narzędzie z podanymi argumentami."""
+    """Wykonuje narzędzie względem opcjonalnego katalogu docelowego."""
     if tool_name not in SKILL_FUNCTIONS:
         return json.dumps({
             "success": False,
@@ -329,8 +330,24 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> str:
         })
 
     func = SKILL_FUNCTIONS[tool_name]
+    normalized_arguments = dict(arguments)
+    target_dir = normalized_arguments.pop("target_dir", None)
+    if target_dir and isinstance(target_dir, str):
+        target_dir = os.path.abspath(target_dir)
+        if tool_name in {
+            "run_command_tool", "run_sandbox_tool", "run_tests_tool",
+            "run_coverage_tool", "git_tool",
+        }:
+            normalized_arguments["cwd"] = target_dir
+        elif tool_name in {
+            "list_dir_tool", "read_file_tool", "write_file_tool",
+            "run_linter_tool", "get_ast_context_tool", "format_file_tool",
+        } and isinstance(normalized_arguments.get("path"), str):
+            path = normalized_arguments["path"]
+            if not os.path.isabs(path):
+                normalized_arguments["path"] = os.path.join(target_dir, path)
     try:
-        result = func(**arguments)
+        result = func(**normalized_arguments)
         return str(result)
     except TypeError as e:
         return json.dumps({

@@ -35,6 +35,22 @@ class TestAgentCapabilities(unittest.TestCase):
         self.assertFalse(is_visible_workspace_path(str(APP_ROOT / "agents")))
         self.assertTrue(is_visible_workspace_path(os.path.join(tempfile.gettempdir(), "Folder 4")))
 
+    def test_execute_tool_applies_target_dir_to_files_and_commands(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            with patch("skills.registry.SKILL_FUNCTIONS", {
+                "read_file_tool": lambda path: path,
+                "run_command_tool": lambda cwd: cwd,
+            }):
+                file_path = execute_tool(
+                    "read_file_tool", {"path": "notes.txt", "target_dir": workspace}
+                )
+                command_path = execute_tool(
+                    "run_command_tool", {"target_dir": workspace}
+                )
+
+            self.assertEqual(file_path, os.path.join(workspace, "notes.txt"))
+            self.assertEqual(command_path, os.path.abspath(workspace))
+
     def test_tool_iteration_guard_persists_across_model_rounds(self):
         tool_call = {
             "function": {
