@@ -25,6 +25,7 @@ from skills.implementations.dev_ops import (
     run_tests_tool,
 )
 from core.logger import read_logs
+from core.security import workspace_context
 from core.linter import run_linter, format_lint_errors
 from core.ast_analyzer import get_ast_summary
 
@@ -347,7 +348,8 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> str:
             if not os.path.isabs(path):
                 normalized_arguments["path"] = os.path.join(target_dir, path)
     try:
-        result = func(**normalized_arguments)
+        with workspace_context(target_dir):
+            result = func(**normalized_arguments)
         return str(result)
     except TypeError as e:
         return json.dumps({

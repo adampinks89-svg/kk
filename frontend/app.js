@@ -839,9 +839,31 @@ document.addEventListener('DOMContentLoaded', () => {
         workspaceDirectoryList.innerHTML = '<p class="panel-empty">Ładowanie katalogów...</p>';
         try {
             const query = path ? `?path=${encodeURIComponent(path)}` : '';
-            const response = await fetch(`/api/directories${query}`);
+            const endpoint = path ? `/api/directories${query}` : '/api/directory-roots';
+            const response = await fetch(endpoint);
             const data = await response.json();
             if (!response.ok || data.error) throw new Error(data.error || 'Nie udało się odczytać katalogu.');
+
+            if (!path) {
+                browsedWorkspacePath = '';
+                workspaceCurrentPath.textContent = 'Wybierz dysk';
+                workspaceCurrentPath.dataset.parent = '';
+                workspaceParentBtn.disabled = true;
+                workspaceDirectoryList.innerHTML = '';
+                if (!data.roots.length) {
+                    workspaceDirectoryList.innerHTML = '<p class="panel-empty">Brak dostępnych dysków.</p>';
+                    return;
+                }
+                data.roots.forEach(root => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'workspace-directory';
+                    button.innerHTML = `<span>💽</span><span>${escapeHtml(root.name)}</span>`;
+                    button.addEventListener('click', () => loadWorkspaceDirectory(root.path));
+                    workspaceDirectoryList.appendChild(button);
+                });
+                return;
+            }
 
             browsedWorkspacePath = data.path;
             workspaceCurrentPath.textContent = data.path;
@@ -873,7 +895,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     browseWorkspaceBtn.addEventListener('click', () => {
         workspaceModal.classList.add('active');
-        loadWorkspaceDirectory(workspaceSelect.value || '');
+        loadWorkspaceDirectory('');
     });
     workspaceCloseBtn.addEventListener('click', closeWorkspaceModal);
     workspaceParentBtn.addEventListener('click', () => {

@@ -1,4 +1,6 @@
 import os
+import contextlib
+import contextvars
 from pathlib import Path
 
 APP_ROOT = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))).resolve()
@@ -17,6 +19,17 @@ ALLOWED_WORKSPACES = [
     if root.strip()
 ] or DEFAULT_WORKSPACES
 BLOCKED_COMMANDS = ["system32", "syswow64", "rmdir /s /q", "format", "del /s /q", "reg delete", "shutdown"]
+_active_workspace = contextvars.ContextVar("active_workspace", default=None)
+
+
+@contextlib.contextmanager
+def workspace_context(workspace: str | None):
+    """Ustawia workspace tylko na czas wykonania bieżącego narzędzia."""
+    token = _active_workspace.set(os.path.abspath(workspace) if workspace else None)
+    try:
+        yield
+    finally:
+        _active_workspace.reset(token)
 
 
 def unrestricted_workspace_enabled() -> bool:
@@ -30,12 +43,32 @@ def validate_path(target_path: str) -> bool:
         abs_target = Path(target_path).resolve()
         if unrestricted_workspace_enabled():
             return abs_target.exists()
+        active_workspace = _active_workspace.get()
+        if active_workspace and os.path.commonpath((str(abs_target), active_workspace)) == active_workspace:
+            return True
         return any(
             os.path.commonpath((str(abs_target), workspace)) == workspace
             for workspace in ALLOWED_WORKSPACES
         )
     except Exception:
         return False
+
+
+def is_browsable_directory(target_path: str) -> bool:
+    """Pozwala przeglądać istniejące katalogi, z wyjątkiem katalogu aplikacji."""
+    try:
+        resolved = Path(target_path).resolve()
+        return resolved.is_dir() and is_visible_workspace_path(str(resolved))
+    except (OSError, ValueError):
+        return False
+
+
+def filesystem_roots() -> list[str]:
+    """Zwraca korzenie dostępnych dysków dla przeglądarki folderów."""
+    if os.name == "nt":
+        import string
+        return [f"{drive}:\\" for drive in string.ascii_uppercase if os.path.isdir(f"{drive}:\\")]
+    return ["/"]
 
 
 def is_visible_workspace_path(target_path: str) -> bool:

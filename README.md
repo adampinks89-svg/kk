@@ -71,6 +71,7 @@ Agent używa wybranego katalogu dla poleceń, odczytu plików i modyfikacji. Dla
 - `GET /api/roles` - dostępne role agenta;
 - `GET /api/workspaces` - początkowa lista workspace'ów;
 - `GET /api/directories?path=...` - bieżący katalog i jego bezpośrednie podkatalogi;
+- `GET /api/directory-roots` - korzenie dysków dostępne w przeglądarce folderów;
 - `GET /api/filetree?path=...` - pliki i podkatalogi wybranego workspace'u;
 - `GET /api/logs` - logi systemowe;
 - `GET /api/snapshots` - dostępne migawki;

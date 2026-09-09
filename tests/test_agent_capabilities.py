@@ -1,4 +1,5 @@
 import os
+import asyncio
 import unittest
 import json
 import tempfile
@@ -6,6 +7,7 @@ from unittest.mock import patch
 
 import agents.local_agent as local_agent
 import agents.google_adk_agent as google_adk_agent
+from backend.server import get_directories, get_directory_roots
 from core.security import APP_ROOT, is_visible_workspace_path
 from skills.registry import SKILL_FUNCTIONS, OLLAMA_TOOLS, execute_tool
 
@@ -50,6 +52,15 @@ class TestAgentCapabilities(unittest.TestCase):
 
             self.assertEqual(file_path, os.path.join(workspace, "notes.txt"))
             self.assertEqual(command_path, os.path.abspath(workspace))
+
+    def test_directory_picker_exposes_roots_and_navigable_directories(self):
+        roots = asyncio.run(get_directory_roots())
+        self.assertTrue(roots["roots"])
+
+        root_path = roots["roots"][0]["path"]
+        directories = asyncio.run(get_directories(root_path))
+        self.assertEqual(directories["path"], root_path)
+        self.assertIsNone(directories["parent"])
 
     def test_tool_iteration_guard_persists_across_model_rounds(self):
         tool_call = {

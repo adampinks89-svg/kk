@@ -17,7 +17,7 @@ import httpx
 from urllib.parse import urlsplit
 from skills.registry import OLLAMA_TOOLS, execute_tool
 from core.logger import log_event, log_error
-from core.security import is_visible_workspace_path
+from core.security import is_visible_workspace_path, workspace_context
 from core.payload import (
     ThoughtPayload, FileEventPayload, MessagePayload,
     LoopGuardPayload, SystemPayload, ErrorPayload, TerminalEventPayload
@@ -422,7 +422,8 @@ def query_local_model_stream(
                 yield SystemPayload(f"🛠️ Wykonuję: **`{func_name}`**...").to_dict()
 
                 try:
-                    result_str = execute_tool(func_name, args)
+                    with workspace_context(working_directory):
+                        result_str = execute_tool(func_name, args)
                 except Exception as tool_err:
                     result_str = f"Błąd narzędzia: {str(tool_err)}"
 

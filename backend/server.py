@@ -24,6 +24,8 @@ from core.logger import read_logs
 from core.snapshot import list_snapshots, restore_snapshot
 from core.security import (
     ALLOWED_WORKSPACES,
+    filesystem_roots,
+    is_browsable_directory,
     WORKSPACE_ROOTS_CONFIGURED,
     is_visible_workspace_path,
     unrestricted_workspace_enabled,
@@ -114,11 +116,7 @@ async def get_workspaces():
 async def get_directories(path: str | None = None):
     """Zwraca bieżący katalog i jego bezpośrednie podkatalogi do wyboru."""
     requested_path = os.path.abspath(path or os.getcwd())
-    if (
-        not validate_path(requested_path)
-        or not is_visible_workspace_path(requested_path)
-        or not os.path.isdir(requested_path)
-    ):
+    if not is_browsable_directory(requested_path):
         return {"error": "Katalog nie jest dostępny w dozwolonym workspace."}
 
     directories = []
@@ -129,9 +127,7 @@ async def get_directories(path: str | None = None):
     parent = os.path.dirname(requested_path)
     parent_path = (
         parent
-        if validate_path(parent)
-        and is_visible_workspace_path(parent)
-        and parent != requested_path
+        if is_browsable_directory(parent) and parent != requested_path
         else None
     )
     return {
@@ -139,6 +135,18 @@ async def get_directories(path: str | None = None):
         "name": os.path.basename(requested_path) or requested_path,
         "parent": parent_path,
         "directories": directories,
+    }
+
+
+@app.get("/api/directory-roots")
+async def get_directory_roots():
+    """Zwraca korzenie dysków jako punkt startowy przeglądarki folderów."""
+    return {
+        "roots": [
+            {"path": path, "name": path}
+            for path in filesystem_roots()
+            if is_browsable_directory(path)
+        ]
     }
 
 
@@ -309,11 +317,7 @@ async def websocket_endpoint(websocket: WebSocket):
             # --- Ustawienie katalogu docelowego ---
             elif action == "set_workspace":
                 requested_directory = payload.get("path", "")
-                if (
-                    validate_path(requested_directory)
-                    and is_visible_workspace_path(requested_directory)
-                    and os.path.isdir(requested_directory)
-                ):
+                if is_browsable_directory(requested_directory):
                     working_directory = os.path.abspath(requested_directory)
                     await websocket.send_json({
                         "type": "system",
