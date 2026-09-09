@@ -316,7 +316,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
             # --- Ustawienie katalogu docelowego ---
             elif action == "set_workspace":
-                requested_directory = payload.get("path", "")
+                requested_directory = payload.get("target_dir") or payload.get("path", "")
                 if is_browsable_directory(requested_directory):
                     working_directory = os.path.abspath(requested_directory)
                     await websocket.send_json({

@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 ws.send(JSON.stringify({ action: 'set_role', role: roleSelect.value }));
                 if (workspaceSelect.value) {
-                    ws.send(JSON.stringify({ action: 'set_workspace', path: workspaceSelect.value }));
+                    ws.send(JSON.stringify({ action: 'set_workspace', target_dir: workspaceSelect.value }));
                 }
             }, 300);
         };
@@ -787,7 +787,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     workspaceSelect.addEventListener('change', () => {
         if (ws && isConnected) {
-            ws.send(JSON.stringify({ action: 'set_workspace', path: workspaceSelect.value }));
+            ws.send(JSON.stringify({ action: 'set_workspace', target_dir: workspaceSelect.value }));
             showToast(`Folder agenta: ${workspaceSelect.options[workspaceSelect.selectedIndex].text}`, 'info');
         }
         loadFiletree(workspaceSelect.value);
